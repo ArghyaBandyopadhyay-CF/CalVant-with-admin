@@ -1,876 +1,1875 @@
-import { useState, useEffect, useCallback } from "react";
+// //Working Module
+// import React, { useState, useEffect, useCallback } from "react";
+// import adminAxios from "../../api/adminAxios";
+// import {
+//   CheckCircle2, Lock, Building2, Shield, GraduationCap, ChevronRight,
+//   Plus, Trash2, User, Mail, Phone, Globe, MapPin, Users, Briefcase,
+//   BookOpen, Video, FileText, Award, Loader2, PartyPopper, X, AlertCircle,
+// } from "lucide-react";
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   CALVANT · Onboarding Module
-   Route: shown to "root" role users after login.
-   Calls:  GET  /api/onboarding            → { progress, organization }
-           PATCH /api/onboarding/step1     → save business info
-           PATCH /api/onboarding/step2     → save dept/user IDs
-           PATCH /api/onboarding/step3     → save training info
-   User creation goes via: POST /api/users/register
-   Dept creation goes via:  POST /api/departments
-───────────────────────────────────────────────────────────────────────────── */
+// const API = "https://api.calvant.com/user-service";
+// const ax = adminAxios;
 
-const API = "";            // Set your base URL e.g. "http://localhost:8080"
-const getToken = () => localStorage.getItem("token") || "";
+// // ── Change 2: Real Calvant roles ─────────────────────────────────────────────
+// const CALVANT_ROLES = [
+//   { value: "steering_committee_member", label: "Steering Committee Member" },
+//   { value: "risk_owner",               label: "Risk Owner" },
+//   { value: "risk_manager",             label: "Risk Manager" },
+//   { value: "process_owner",            label: "Process Owner" },
+//   { value: "process_manager",          label: "Process Manager" },
+//   { value: "auditor",                  label: "Auditor" },
+//   { value: "audit_manager",            label: "Audit Manager" },
+//   { value: "dpo",                      label: "DPO" },
+//   { value: "ciso",                     label: "CISO" },
+//   { value: "aio",                      label: "AIO" },
+//   { value: "user",                     label: "User" },
+// ];
 
-const authFetch = (url, opts = {}) =>
-  fetch(`${API}${url}`, {
-    ...opts,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}`, ...(opts.headers || {}) },
-  });
+// // ── Change 2: Calvant predefined department mapping ──────────────────────────
+// const PREDEFINED_DEPARTMENTS = [
+//   "Security Officer", "Steering Committee", "Admin & Facilities",
+//   "IT Department", "IT Infra", "Vendor Management", "Procurement",
+//   "Legal", "HR", "IT Applications",
+// ];
 
-// ── Palette constants ────────────────────────────────────────────────────────
-const COLOR = {
-  brand:      "#1D9E75",
-  brandLight: "#E1F5EE",
-  brandDark:  "#0F6E56",
-  amber:      "#BA7517",
-  amberLight: "#FAEEDA",
-  danger:     "#E24B4A",
-  dangerLight:"#FCEBEB",
-  gray:       "#888780",
-  grayLight:  "#F1EFE8",
-  text:       "var(--color-text-primary)",
-  textSub:    "var(--color-text-secondary)",
-  border:     "var(--color-border-tertiary)",
-  bg:         "var(--color-background-primary)",
-  bgSec:      "var(--color-background-secondary)",
-};
+// // ── Change 1: Country codes ──────────────────────────────────────────────────
+// const COUNTRY_CODES = [
+//   { code: "+91",  country: "IN" },
+//   { code: "+1",   country: "US" },
+//   { code: "+44",  country: "UK" },
+//   { code: "+971", country: "UAE" },
+//   { code: "+966", country: "KSA" },
+//   { code: "+65",  country: "SG" },
+//   { code: "+61",  country: "AU" },
+//   { code: "+49",  country: "DE" },
+//   { code: "+33",  country: "FR" },
+//   { code: "+81",  country: "JP" },
+// ];
 
-// ── Shared styles ────────────────────────────────────────────────────────────
-const S = {
-  input: {
-    width: "100%", padding: "9px 12px", borderRadius: 8,
-    border: `0.5px solid var(--color-border-secondary)`,
-    background: "var(--color-background-primary)",
-    color: "var(--color-text-primary)", fontSize: 14,
-    outline: "none", boxSizing: "border-box",
-  },
-  label: { fontSize: 13, fontWeight: 500, color: "var(--color-text-secondary)", marginBottom: 4, display: "block" },
-  field: { display: "flex", flexDirection: "column", gap: 4 },
-  grid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 },
-  grid3: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 },
-  card: {
-    background: "var(--color-background-primary)",
-    border: `0.5px solid var(--color-border-tertiary)`,
-    borderRadius: 12, padding: "1.25rem",
-  },
-  sectionTitle: { fontSize: 13, fontWeight: 500, color: COLOR.gray, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 },
-  btn: (variant = "primary") => ({
-    padding: "9px 20px", borderRadius: 8, fontSize: 14, fontWeight: 500,
-    cursor: "pointer", border: "none", transition: "opacity .15s",
-    background: variant === "primary" ? COLOR.brand : "transparent",
-    color: variant === "primary" ? "#fff" : "var(--color-text-primary)",
-    border: variant === "ghost" ? `0.5px solid var(--color-border-secondary)` : "none",
-  }),
-  tag: (color = COLOR.brand) => ({
-    display: "inline-flex", alignItems: "center", gap: 4,
-    background: COLOR.brandLight, color: COLOR.brandDark,
-    fontSize: 12, fontWeight: 500, padding: "3px 10px", borderRadius: 20,
-  }),
-  pill: (active) => ({
-    padding: "5px 14px", borderRadius: 20, fontSize: 13, cursor: "pointer",
-    border: `0.5px solid ${active ? COLOR.brand : "var(--color-border-secondary)"}`,
-    background: active ? COLOR.brandLight : "transparent",
-    color: active ? COLOR.brandDark : "var(--color-text-secondary)",
-    fontWeight: active ? 500 : 400, transition: "all .15s",
-  }),
-  err: { fontSize: 12, color: COLOR.danger, marginTop: 4 },
-  success: { fontSize: 12, color: COLOR.brand, marginTop: 4 },
-};
+// // ─── StepCard ─────────────────────────────────────────────────────────────────
+// function StepCard({ number, title, icon: Icon, status, locked, onClick, children }) {
+//   const isOpen = status === "open";
+//   const isDone = status === "done";
+//   return (
+//     <div style={{
+//       border: isDone ? "1.5px solid #22c55e" : isOpen ? "1.5px solid #6366f1" : "1.5px solid #e2e8f0",
+//       borderRadius: 16, marginBottom: 20, background: "#fff", overflow: "hidden",
+//       boxShadow: isOpen ? "0 4px 24px rgba(99,102,241,0.08)" : "0 1px 4px rgba(0,0,0,0.04)",
+//       transition: "all 0.3s ease",
+//     }}>
+//       <div onClick={!locked ? onClick : undefined} style={{
+//         display: "flex", alignItems: "center", gap: 16, padding: "20px 24px",
+//         cursor: locked ? "not-allowed" : "pointer", userSelect: "none",
+//         background: isDone ? "linear-gradient(90deg,#f0fdf4,#fff)" : isOpen ? "linear-gradient(90deg,#eef2ff,#fff)" : "#fafafa",
+//       }}>
+//         <div style={{
+//           width: 42, height: 42, borderRadius: "50%", display: "flex", alignItems: "center",
+//           justifyContent: "center", flexShrink: 0,
+//           background: isDone ? "#22c55e" : isOpen ? "#6366f1" : "#e2e8f0",
+//           color: "#fff", fontWeight: 700, fontSize: 16,
+//         }}>
+//           {isDone ? <CheckCircle2 size={22} /> : locked ? <Lock size={18} /> : number}
+//         </div>
+//         <div style={{ flex: 1 }}>
+//           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+//             <Icon size={18} color={isDone ? "#22c55e" : isOpen ? "#6366f1" : "#94a3b8"} />
+//             <span style={{ fontWeight: 700, fontSize: 17, color: locked ? "#94a3b8" : isDone ? "#15803d" : isOpen ? "#4f46e5" : "#1e293b" }}>
+//               {title}
+//             </span>
+//           </div>
+//           <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>
+//             {locked ? "Complete previous step to unlock" : isDone ? "Completed ✓" : isOpen ? "In progress — fill in the details below" : "Click to begin"}
+//           </div>
+//         </div>
+//         {!locked && <ChevronRight size={20} color="#cbd5e1" style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />}
+//       </div>
+//       {isOpen && <div style={{ padding: "0 24px 28px" }}>{children}</div>}
+//     </div>
+//   );
+// }
 
-// ── Utility ──────────────────────────────────────────────────────────────────
-const required = (val) => !val || String(val).trim() === "";
+// function Field({ label, required, children, hint }) {
+//   return (
+//     <div style={{ marginBottom: 18 }}>
+//       <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>
+//         {label} {required && <span style={{ color: "#ef4444" }}>*</span>}
+//       </label>
+//       {children}
+//       {hint && <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{hint}</div>}
+//     </div>
+//   );
+// }
 
-function Field({ label, req, error, children, hint }) {
+// function Input({ value, onChange, placeholder, type = "text", readOnly, prefix }) {
+//   return (
+//     <div style={{ position: "relative" }}>
+//       {prefix && <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }}>{prefix}</span>}
+//       <input type={type} value={value} onChange={onChange} placeholder={placeholder} readOnly={readOnly}
+//         style={{
+//           width: "100%", padding: prefix ? "10px 12px 10px 36px" : "10px 12px",
+//           border: "1.5px solid", borderColor: readOnly ? "#f1f5f9" : "#e2e8f0", borderRadius: 8,
+//           fontSize: 14, color: readOnly ? "#94a3b8" : "#1e293b",
+//           background: readOnly ? "#f8fafc" : "#fff", boxSizing: "border-box", outline: "none",
+//         }}
+//         onFocus={e => !readOnly && (e.target.style.borderColor = "#6366f1")}
+//         onBlur={e => !readOnly && (e.target.style.borderColor = "#e2e8f0")}
+//       />
+//     </div>
+//   );
+// }
+
+// // ── Change 1: Phone with country code ────────────────────────────────────────
+// function PhoneInput({ value, onChange }) {
+//   const [code, setCode] = useState("+91");
+//   const [number, setNumber] = useState("");
+
+//   useEffect(() => {
+//     if (value && value.startsWith("+")) {
+//       const match = COUNTRY_CODES.find(c => value.startsWith(c.code));
+//       if (match) { setCode(match.code); setNumber(value.replace(match.code, "").trim()); }
+//       else setNumber(value);
+//     }
+//   }, []);
+
+//   const fire = (newCode, newNumber) => {
+//     const c = newCode ?? code;
+//     const n = newNumber ?? number;
+//     setCode(c); setNumber(n);
+//     onChange(`${c} ${n}`);
+//   };
+
+//   return (
+//     <div style={{ display: "flex", gap: 8 }}>
+//       <select value={code} onChange={e => fire(e.target.value, undefined)}
+//         style={{ padding: "10px 8px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#1e293b", background: "#fff", cursor: "pointer", minWidth: 95, outline: "none" }}>
+//         {COUNTRY_CODES.map(c => <option key={c.code} value={c.code}>{c.code} {c.country}</option>)}
+//       </select>
+//       <input type="tel" value={number} onChange={e => fire(undefined, e.target.value)} placeholder="98765 43210"
+//         style={{ flex: 1, padding: "10px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 14, color: "#1e293b", background: "#fff", boxSizing: "border-box", outline: "none" }}
+//         onFocus={e => (e.target.style.borderColor = "#6366f1")}
+//         onBlur={e => (e.target.style.borderColor = "#e2e8f0")}
+//       />
+//     </div>
+//   );
+// }
+
+// function SelectInput({ value, onChange, options, placeholder = "Select…" }) {
+//   return (
+//     <select value={value} onChange={onChange} style={{
+//       width: "100%", padding: "10px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8,
+//       fontSize: 14, color: "#1e293b", background: "#fff", boxSizing: "border-box", outline: "none", cursor: "pointer",
+//     }}>
+//       <option value="">{placeholder}</option>
+//       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+//     </select>
+//   );
+// }
+
+// function Btn({ children, onClick, variant = "primary", disabled, loading, small }) {
+//   const base = { padding: small ? "7px 14px" : "10px 22px", borderRadius: 8, fontWeight: 600, fontSize: small ? 13 : 14, display: "inline-flex", alignItems: "center", gap: 6, transition: "opacity 0.15s" };
+//   const variants = {
+//     primary:  { background: "#6366f1", color: "#fff", border: "none" },
+//     secondary:{ background: "#f1f5f9", color: "#475569", border: "1.5px solid #e2e8f0" },
+//     success:  { background: disabled ? "#bbf7d0" : "#22c55e", color: "#fff", border: "none" },
+//   };
+//   return (
+//     <button onClick={onClick} disabled={disabled || loading}
+//       style={{ ...base, ...variants[variant], cursor: disabled || loading ? "not-allowed" : "pointer", opacity: loading && variant !== "success" ? 0.6 : 1 }}>
+//       {loading && <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />}
+//       {children}
+//     </button>
+//   );
+// }
+
+// function Tag({ label, color = "#6366f1" }) {
+//   return <span style={{ display: "inline-block", padding: "3px 10px", background: color + "18", color, borderRadius: 20, fontSize: 12, fontWeight: 600, border: `1px solid ${color}30` }}>{label}</span>;
+// }
+
+// // ─── Main Component ───────────────────────────────────────────────────────────
+// export default function OnboardingModule() {
+//   const [progress, setProgress]     = useState(null);
+//   const [org, setOrg]               = useState(null);
+//   const [loading, setLoading]       = useState(true);
+//   const [activeStep, setActiveStep] = useState(1);
+//   const [error, setError]           = useState(null);
+
+//   const [biz, setBiz] = useState({
+//     address: "", phone: "", website: "", industry: "",
+//     totalEmployees: "", officeLocations: "", complianceTeamSize: "",
+//     primaryContactName: "", primaryContactEmail: "", primaryContactPhone: "",
+//     domain: "", goLiveDate: "",
+//   });
+//   const [step1Saving, setStep1Saving] = useState(false);
+
+//   const [departments, setDepartments] = useState([]);
+//   const [newDeptName, setNewDeptName] = useState("");
+//   const [deptMapping, setDeptMapping] = useState("");
+//   const [showMapping, setShowMapping] = useState(false);
+//   const [deptSaving, setDeptSaving]   = useState(false);
+//   const [users, setUsers]             = useState([]);
+//   const [newUser, setNewUser]         = useState({ name: "", email: "", role: "", department: "", password: "" });
+//   const [userSaving, setUserSaving]   = useState(false);
+//   const [step2Saving, setStep2Saving] = useState(false);
+
+//   // Change 3: simplified training state
+//   const [training, setTraining]       = useState({ preferredDate: "", acknowledged: false });
+//   const [step3Saving, setStep3Saving] = useState(false);
+
+//   // Change 2: auto-map dept name
+//   useEffect(() => {
+//     if (!newDeptName.trim()) { setShowMapping(false); setDeptMapping(""); return; }
+//     const match = PREDEFINED_DEPARTMENTS.find(d => d.toLowerCase() === newDeptName.trim().toLowerCase());
+//     if (match) { setDeptMapping(match); setShowMapping(false); }
+//     else { setDeptMapping(""); setShowMapping(true); }
+//   }, [newDeptName]);
+
+//   const fetchOnboarding = useCallback(async () => {
+//     try {
+//       setLoading(true);
+//       const res = await ax.get(`${API}/api/onboarding`);
+//       const { progress: p, organization: o } = res.data;
+//       setProgress(p); setOrg(o);
+//       setBiz(prev => ({ ...prev, address: o.address || "", phone: o.phone || "", website: o.website || "", ...(p.businessInfo || {}) }));
+//       if (p.trainingInfo) setTraining({ preferredDate: p.trainingInfo.preferredDate || "", acknowledged: false });
+//       if (p.step3Completed)      setActiveStep(3);
+//       else if (p.step2Completed) setActiveStep(3);
+//       else if (p.step1Completed) setActiveStep(2);
+//       else                       setActiveStep(1);
+//       const deptRes = await ax.get(`${API}/api/departments`);
+//       setDepartments(deptRes.data || []);
+//     } catch (e) {
+//       if (e.response?.status === 422 || e.response?.status === 403) setError("STALE_TOKEN");
+//       else setError("Failed to load onboarding data. Please refresh.");
+//     } finally { setLoading(false); }
+//   }, []);
+
+//   useEffect(() => { fetchOnboarding(); }, [fetchOnboarding]);
+
+//   const saveStep1 = async () => {
+//     const req = ["industry", "primaryContactName", "primaryContactEmail"];
+//     for (const f of req) { if (!biz[f]) { setError(`Please fill in: ${f.replace(/([A-Z])/g, " $1").toLowerCase()}`); return; } }
+//     try {
+//       setStep1Saving(true); setError(null);
+//       await ax.patch(`${API}/api/onboarding/step1`, {
+//         businessInfo: { ...biz, legalEntityName: org?.name, submittedByName: biz.primaryContactName, submittedByEmail: biz.primaryContactEmail, expectedGoLiveDate: biz.goLiveDate, primaryDomain: biz.domain }
+//       });
+//       const res = await ax.get(`${API}/api/onboarding`);
+//       setProgress(res.data.progress); setActiveStep(2);
+//     } catch (e) { setError(e.response?.data || "Failed to save Step 1."); }
+//     finally { setStep1Saving(false); }
+//   };
+
+//   const addDepartment = async () => {
+//     if (!newDeptName.trim()) return;
+//     if (showMapping && !deptMapping) { setError("Please map this department to a predefined category."); return; }
+//     try {
+//       setDeptSaving(true);
+//       const res = await ax.post(`${API}/api/departments`, { name: newDeptName.trim(), mapping: deptMapping });
+//       setDepartments(d => [...d, res.data]);
+//       setNewDeptName(""); setDeptMapping(""); setShowMapping(false);
+//     } catch (e) { setError(e.response?.data || "Failed to add department."); }
+//     finally { setDeptSaving(false); }
+//   };
+
+//   const deleteDepartment = async (id) => {
+//     try { await ax.delete(`${API}/api/departments/${id}`); setDepartments(d => d.filter(x => x.id !== id)); }
+//     catch { setError("Failed to delete department."); }
+//   };
+
+//   const createUser = async () => {
+//     const req = ["name", "email", "role", "password"];
+//     for (const f of req) { if (!newUser[f]) { setError(`Please fill: ${f}`); return; } }
+//     try {
+//       setUserSaving(true); setError(null);
+//       const res = await ax.post(`${API}/api/users/register`, {
+//         ...newUser, role: [newUser.role], department: newUser.department ? [newUser.department] : [],
+//       });
+//       setUsers(u => [...u, res.data]);
+//       setNewUser({ name: "", email: "", role: "", department: "", password: "" });
+//     } catch (e) { setError(e.response?.data || "Failed to create user."); }
+//     finally { setUserSaving(false); }
+//   };
+
+//   const removeUser = email => setUsers(u => u.filter(x => x.email !== email));
+
+//   const saveStep2 = async () => {
+//     try {
+//       setStep2Saving(true); setError(null);
+//       await ax.patch(`${API}/api/onboarding/step2`, {
+//         onboardedDepartmentIds: departments.map(d => d.id),
+//         onboardedUserIds:       users.map(u => u.id || u.email),
+//       });
+//       const res = await ax.get(`${API}/api/onboarding`);
+//       setProgress(res.data.progress); setActiveStep(3);
+//     } catch (e) { setError(e.response?.data?.message || "Failed to save Step 2."); }
+//     finally { setStep2Saving(false); }
+//   };
+
+//   // Change 3: simplified step3 save
+//   const saveStep3 = async () => {
+//     if (!training.acknowledged) { setError("Please acknowledge the training materials."); return; }
+//     try {
+//       setStep3Saving(true); setError(null);
+//       await ax.patch(`${API}/api/onboarding/step3`, {
+//         trainingInfo: { preferredDate: training.preferredDate, trainingMode: "online", trainingContactName: "", trainingContactEmail: "", acknowledged: true }
+//       });
+//       const res = await ax.get(`${API}/api/onboarding`);
+//       setProgress(res.data.progress);
+//     } catch (e) { setError(e.response?.data?.message || "Failed to save Step 3."); }
+//     finally { setStep3Saving(false); }
+//   };
+
+//   const INDUSTRY_OPTIONS = [
+//     { value: "Technology", label: "Technology" }, { value: "Banking & Finance", label: "Banking & Finance" },
+//     { value: "Healthcare", label: "Healthcare" }, { value: "Manufacturing", label: "Manufacturing" },
+//     { value: "Retail", label: "Retail" }, { value: "Government", label: "Government" },
+//     { value: "Education", label: "Education" }, { value: "Energy", label: "Energy" },
+//     { value: "Telecom", label: "Telecom" }, { value: "Other", label: "Other" },
+//   ];
+
+//   const TRAINING_RESOURCES = [
+//     { icon: BookOpen, title: "ISO 27001 Fundamentals",     desc: "Overview of the information security management standard.",        tag: "ISO 27001", color: "#6366f1" },
+//     { icon: Shield,   title: "Risk Assessment Guide",      desc: "How to identify, evaluate, and treat information security risks.",  tag: "Risk",      color: "#8b5cf6" },
+//     { icon: FileText, title: "Policy Writing Templates",   desc: "Ready-to-use templates for mandatory ISO/SOC2 policies.",          tag: "Policy",    color: "#0ea5e9" },
+//     { icon: Video,    title: "Platform Walkthrough Video", desc: "30-minute guided tour of all modules in the platform.",            tag: "Platform",  color: "#f59e0b" },
+//     { icon: Award,    title: "Audit Readiness Checklist",  desc: "Step-by-step checklist to prepare for your first external audit.", tag: "Audit",     color: "#22c55e" },
+//     { icon: Users,    title: "Team Roles & Responsibilities", desc: "Who does what in your compliance program.",                     tag: "Team",      color: "#ef4444" },
+//   ];
+
+//   if (loading) return (
+//     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 400, gap: 12, color: "#6366f1", fontSize: 16, fontWeight: 600 }}>
+//       <Loader2 size={24} style={{ animation: "spin 1s linear infinite" }} /> Loading onboarding…
+//       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+//     </div>
+//   );
+
+//   if (error === "STALE_TOKEN") return (
+//     <div style={{ maxWidth: 480, margin: "80px auto", textAlign: "center", padding: "0 24px" }}>
+//       <div style={{ fontSize: 56, marginBottom: 20 }}>🔐</div>
+//       <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", marginBottom: 12 }}>Session needs a refresh</h2>
+//       <p style={{ fontSize: 15, color: "#64748b", lineHeight: 1.7, marginBottom: 28 }}>Please log out and log back in.</p>
+//       <button onClick={() => { sessionStorage.clear(); window.location.href = "/login"; }}
+//         style={{ background: "#6366f1", color: "#fff", border: "none", padding: "12px 28px", borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
+//         Log out &amp; refresh session
+//       </button>
+//     </div>
+//   );
+
+//   if (progress?.step1Completed && progress?.step2Completed && progress?.step3Completed) return (
+//     <div style={{ maxWidth: 640, margin: "60px auto", textAlign: "center", padding: "0 24px" }}>
+//       <style>{`@keyframes pop{0%{transform:scale(0.5);opacity:0}80%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}`}</style>
+//       <div style={{ animation: "pop 0.6s ease forwards" }}><PartyPopper size={72} color="#6366f1" /></div>
+//       <h1 style={{ fontSize: 32, fontWeight: 800, color: "#1e293b", margin: "20px 0 12px" }}>Welcome aboard, {org?.name}!</h1>
+//       <p style={{ fontSize: 16, color: "#64748b", lineHeight: 1.7, marginBottom: 32 }}>Your organization is fully set up. Your compliance journey starts now.</p>
+//       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 36 }}>
+//         {[{ icon: Building2, label: "Business Info", color: "#6366f1" }, { icon: Shield, label: "Modules & Team", color: "#8b5cf6" }, { icon: GraduationCap, label: "Training", color: "#22c55e" }]
+//           .map(({ icon: Icon, label, color }) => (
+//             <div key={label} style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "20px 12px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+//               <CheckCircle2 size={28} color={color} />
+//               <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>{label}</span>
+//             </div>
+//           ))}
+//       </div>
+//       <Btn onClick={() => (window.location.href = "/admin")} variant="primary">Go to Dashboard <ChevronRight size={16} /></Btn>
+//     </div>
+//   );
+
+//   return (
+//     <div style={{ maxWidth: 780, margin: "0 auto", padding: "32px 24px" }}>
+//       <style>{`
+//         @keyframes spin{to{transform:rotate(360deg)}}
+//         @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+//         @keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+//         .onb-fade{animation:fadeIn 0.3s ease}
+//       `}</style>
+
+//       <div style={{ marginBottom: 32 }}>
+//         <h1 style={{ fontSize: 28, fontWeight: 800, color: "#1e293b", margin: 0 }}>Organization Setup</h1>
+//         <p style={{ fontSize: 15, color: "#64748b", marginTop: 6 }}>Complete the three steps below to finish setting up <strong>{org?.name}</strong>.</p>
+//         <div style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 12 }}>
+//           {[1, 2, 3].map(n => {
+//             const done = n === 1 ? progress?.step1Completed : n === 2 ? progress?.step2Completed : progress?.step3Completed;
+//             return <React.Fragment key={n}><div style={{ height: 6, flex: 1, borderRadius: 4, background: done ? "#6366f1" : "#e2e8f0", transition: "background 0.4s ease" }} /></React.Fragment>;
+//           })}
+//           <span style={{ fontSize: 13, fontWeight: 600, color: "#6366f1", whiteSpace: "nowrap" }}>
+//             {progress?.step3Completed ? 3 : progress?.step2Completed ? 2 : progress?.step1Completed ? 1 : 0} / 3
+//           </span>
+//         </div>
+//       </div>
+
+//       {error && (
+//         <div style={{ background: "#fef2f2", border: "1.5px solid #fecaca", borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, marginBottom: 20, color: "#ef4444", fontSize: 14, fontWeight: 500 }}>
+//           <AlertCircle size={16} /><span style={{ flex: 1 }}>{error}</span>
+//           <X size={16} style={{ cursor: "pointer" }} onClick={() => setError(null)} />
+//         </div>
+//       )}
+
+//       {/* ══ STEP 1 ══════════════════════════════════════════════════════════ */}
+//       <StepCard number={1} title="Business Information" icon={Building2}
+//         status={progress?.step1Completed ? "done" : activeStep === 1 ? "open" : "closed"}
+//         locked={false} onClick={() => setActiveStep(1)}>
+//         <div className="onb-fade">
+//           <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: "14px 16px", marginBottom: 24, marginTop: 8 }}>
+//             <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", marginBottom: 10, letterSpacing: "0.05em" }}>SET BY SUPER ADMIN</div>
+//             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+//               <Tag label={`Org: ${org?.name}`} color="#6366f1" />
+//               {(org?.frameworks || []).map(f => <Tag key={f} label={f} color="#8b5cf6" />)}
+//               {org?.tprmEnabled && <Tag label="TPRM Enabled" color="#0ea5e9" />}
+//               <Tag label={`Max Users: ${org?.maxUsers}`} color="#f59e0b" />
+//             </div>
+//           </div>
+
+//           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+//             <Field label="Industry / Sector" required>
+//               <SelectInput value={biz.industry} onChange={e => setBiz({ ...biz, industry: e.target.value })} options={INDUSTRY_OPTIONS} />
+//             </Field>
+//             <Field label="Organization Website" hint="e.g. https://yourcompany.com">
+//               <Input value={biz.website} onChange={e => setBiz({ ...biz, website: e.target.value })} placeholder="https://" prefix={<Globe size={14} />} />
+//             </Field>
+//             <Field label="Office / HQ Address">
+//               <Input value={biz.address} onChange={e => setBiz({ ...biz, address: e.target.value })} placeholder="Street, City, State, Country" prefix={<MapPin size={14} />} />
+//             </Field>
+//             {/* Change 1 */}
+//             <Field label="Contact Phone">
+//               <PhoneInput value={biz.phone} onChange={val => setBiz({ ...biz, phone: val })} />
+//             </Field>
+//             <Field label="Total Employees">
+//               <SelectInput value={biz.totalEmployees} onChange={e => setBiz({ ...biz, totalEmployees: e.target.value })}
+//                 options={[{ value: "1-50", label: "1–50" }, { value: "51-200", label: "51–200" }, { value: "201-500", label: "201–500" }, { value: "501-2000", label: "501–2000" }, { value: "2001+", label: "2001+" }]} />
+//             </Field>
+//             <Field label="Number of Office Locations">
+//               <Input type="number" value={biz.officeLocations} onChange={e => setBiz({ ...biz, officeLocations: e.target.value })} placeholder="e.g. 3" />
+//             </Field>
+//             <Field label="Compliance Team Size">
+//               <Input type="number" value={biz.complianceTeamSize} onChange={e => setBiz({ ...biz, complianceTeamSize: e.target.value })} placeholder="e.g. 5" />
+//             </Field>
+//             <Field label="Email Domain" hint="Primary domain for your organization">
+//               <Input value={biz.domain} onChange={e => setBiz({ ...biz, domain: e.target.value })} placeholder="yourdomain.com" />
+//             </Field>
+//           </div>
+
+//           <div style={{ borderTop: "1.5px solid #f1f5f9", paddingTop: 20, marginTop: 4, marginBottom: 16, fontWeight: 700, fontSize: 14, color: "#475569" }}>
+//             Primary Compliance Contact
+//           </div>
+//           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+//             <Field label="Full Name" required>
+//               <Input value={biz.primaryContactName} onChange={e => setBiz({ ...biz, primaryContactName: e.target.value })} placeholder="Jane Smith" prefix={<User size={14} />} />
+//             </Field>
+//             <Field label="Email" required>
+//               <Input type="email" value={biz.primaryContactEmail} onChange={e => setBiz({ ...biz, primaryContactEmail: e.target.value })} placeholder="jane@company.com" prefix={<Mail size={14} />} />
+//             </Field>
+//             {/* Change 1 */}
+//             <Field label="Contact Phone">
+//               <PhoneInput value={biz.primaryContactPhone} onChange={val => setBiz({ ...biz, primaryContactPhone: val })} />
+//             </Field>
+//             <Field label="Target Go-Live Date" hint="When do you plan to complete your first compliance cycle?">
+//               <Input type="date" value={biz.goLiveDate} onChange={e => setBiz({ ...biz, goLiveDate: e.target.value })} />
+//             </Field>
+//           </div>
+
+//           <div style={{ marginTop: 12 }}>
+//             <Btn onClick={saveStep1} loading={step1Saving} variant="primary">Save & Continue <ChevronRight size={16} /></Btn>
+//           </div>
+//         </div>
+//       </StepCard>
+
+//       {/* ══ STEP 2 ══════════════════════════════════════════════════════════ */}
+//       <StepCard number={2} title="Module Setup & Team" icon={Shield}
+//         status={progress?.step2Completed ? "done" : progress?.step1Completed && activeStep === 2 ? "open" : progress?.step1Completed ? "closed" : "locked"}
+//         locked={!progress?.step1Completed} onClick={() => progress?.step1Completed && setActiveStep(2)}>
+//         <div className="onb-fade">
+
+//           {/* Departments — Change 2 */}
+//           <div style={{ background: "#f8fafc", borderRadius: 12, padding: 20, marginBottom: 28, marginTop: 8 }}>
+//             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+//               <Briefcase size={16} color="#6366f1" />
+//               <span style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Departments</span>
+//               <span style={{ fontSize: 12, color: "#94a3b8" }}>— create departments before adding users</span>
+//             </div>
+
+//             {departments.length > 0 && (
+//               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+//                 {departments.map(d => (
+//                   <div key={d.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 500, color: "#475569" }}>
+//                     {d.name}
+//                     {d.mapping && d.mapping !== d.name && <span style={{ fontSize: 11, color: "#94a3b8" }}>→ {d.mapping}</span>}
+//                     <X size={12} style={{ cursor: "pointer", color: "#94a3b8" }} onClick={() => deleteDepartment(d.id)} />
+//                   </div>
+//                 ))}
+//               </div>
+//             )}
+
+//             <div style={{ display: "flex", gap: 8 }}>
+//               <Input value={newDeptName} onChange={e => setNewDeptName(e.target.value)} placeholder="Department name, e.g. IT, HR, Finance" />
+//               <Btn onClick={addDepartment} loading={deptSaving} variant="secondary" small><Plus size={14} /> Add</Btn>
+//             </div>
+
+//             {/* Auto-match badge */}
+//             {newDeptName.trim() && !showMapping && deptMapping && (
+//               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 12, color: "#15803d", animation: "slideDown 0.2s ease" }}>
+//                 <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#dcfce7", color: "#15803d", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700 }}>✓</span>
+//                 Matched to: <strong>{deptMapping}</strong>
+//               </div>
+//             )}
+
+//             {/* Custom mapping */}
+//             {showMapping && (
+//               <div style={{ marginTop: 12, padding: "12px 14px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, animation: "slideDown 0.2s ease" }}>
+//                 <div style={{ fontSize: 13, color: "#78350f", marginBottom: 10 }}>
+//                   ℹ️ <strong>"{newDeptName}"</strong> is a custom name. Map it to the closest Calvant category:
+//                 </div>
+//                 <select value={deptMapping} onChange={e => setDeptMapping(e.target.value)}
+//                   style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#1e293b", background: "#fff", cursor: "pointer" }}>
+//                   <option value="">— Select a category —</option>
+//                   {PREDEFINED_DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+//                 </select>
+//               </div>
+//             )}
+//           </div>
+
+//           {/* Users — Change 2: real roles + dept by ID */}
+//           <div style={{ marginBottom: 20 }}>
+//             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+//               <Users size={16} color="#6366f1" />
+//               <span style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>Add Team Members</span>
+//             </div>
+
+//             <div style={{ background: "#f8fafc", border: "1.5px dashed #cbd5e1", borderRadius: 12, padding: 20, marginBottom: 16 }}>
+//               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+//                 <Field label="Full Name" required>
+//                   <Input value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} placeholder="John Doe" prefix={<User size={14} />} />
+//                 </Field>
+//                 <Field label="Email" required>
+//                   <Input type="email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="john@company.com" prefix={<Mail size={14} />} />
+//                 </Field>
+//                 <Field label="Role" required>
+//                   <SelectInput value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })} options={CALVANT_ROLES} />
+//                 </Field>
+//                 <Field label="Department">
+//                   <SelectInput value={newUser.department} onChange={e => setNewUser({ ...newUser, department: e.target.value })}
+//                     options={departments.map(d => ({ value: d.id, label: d.name }))} placeholder="Select department…" />
+//                 </Field>
+//                 <Field label="Temporary Password" required>
+//                   <Input type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} placeholder="Min 8 characters" />
+//                 </Field>
+//               </div>
+//               <Btn onClick={createUser} loading={userSaving} variant="secondary"><Plus size={14} /> Create User</Btn>
+//             </div>
+
+//             {users.length > 0 && (
+//               <div>
+//                 <div style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8", marginBottom: 10 }}>USERS ADDED THIS SESSION</div>
+//                 {users.map(u => (
+//                   <div key={u.email} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 10, marginBottom: 8 }}>
+//                     <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#eef2ff", color: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14 }}>
+//                       {u.name?.charAt(0)?.toUpperCase() || "U"}
+//                     </div>
+//                     <div style={{ flex: 1 }}>
+//                       <div style={{ fontWeight: 600, fontSize: 14, color: "#1e293b" }}>{u.name}</div>
+//                       <div style={{ fontSize: 12, color: "#64748b" }}>{u.email}</div>
+//                     </div>
+//                     <Tag label={(Array.isArray(u.role) ? u.role[0] : u.role)?.replace(/_/g, " ")} color="#6366f1" />
+//                     <Trash2 size={14} color="#ef4444" style={{ cursor: "pointer" }} onClick={() => removeUser(u.email)} />
+//                   </div>
+//                 ))}
+//               </div>
+//             )}
+//           </div>
+
+//           <div style={{ marginTop: 16 }}>
+//             <Btn onClick={saveStep2} loading={step2Saving} variant="primary">Save & Continue <ChevronRight size={16} /></Btn>
+//             <span style={{ fontSize: 12, color: "#94a3b8", marginLeft: 12 }}>You can add more users later from the Users section.</span>
+//           </div>
+//         </div>
+//       </StepCard>
+
+//       {/* ══ STEP 3 ══════════════════════════════════════════════════════════ */}
+//       <StepCard number={3} title="Training" icon={GraduationCap}
+//         status={progress?.step3Completed ? "done" : progress?.step2Completed && activeStep === 3 ? "open" : progress?.step2Completed ? "closed" : "locked"}
+//         locked={!progress?.step2Completed} onClick={() => progress?.step2Completed && setActiveStep(3)}>
+//         <div className="onb-fade">
+
+//           {/* Resource cards */}
+//           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 28, marginTop: 8 }}>
+//             {TRAINING_RESOURCES.map(({ icon: Icon, title, desc, tag, color }) => (
+//               <div key={title} style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: 18, transition: "box-shadow 0.15s, border-color 0.15s" }}
+//                 onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.08)"; e.currentTarget.style.borderColor = color; }}
+//                 onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "#e2e8f0"; }}>
+//                 <div style={{ width: 38, height: 38, borderRadius: 10, background: color + "18", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
+//                   <Icon size={18} color={color} />
+//                 </div>
+//                 <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b", marginBottom: 4 }}>{title}</div>
+//                 <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5, marginBottom: 10 }}>{desc}</div>
+//                 <Tag label={tag} color={color} />
+//               </div>
+//             ))}
+//           </div>
+
+//           {/* Change 3: Only preferred date */}
+//           <div style={{ background: "#f8fafc", borderRadius: 12, padding: 20, marginBottom: 20, border: "1.5px solid #e2e8f0" }}>
+//             <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b", marginBottom: 12 }}>Preferred Training Date</div>
+//             <Field label="Select a date" hint="A Calvant team member will reach out to confirm the session">
+//               <Input type="date" value={training.preferredDate} onChange={e => setTraining({ ...training, preferredDate: e.target.value })} />
+//             </Field>
+//           </div>
+
+//           {/* Change 3: Acknowledgement checkbox — lights up the button */}
+//           <label style={{
+//             display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer", padding: 16,
+//             background: training.acknowledged ? "#f0fdf4" : "#fff",
+//             border: `1.5px solid ${training.acknowledged ? "#22c55e" : "#e2e8f0"}`,
+//             borderRadius: 10, marginBottom: 20, transition: "all 0.2s",
+//           }}>
+//             <input type="checkbox" checked={training.acknowledged}
+//               onChange={e => setTraining({ ...training, acknowledged: e.target.checked })}
+//               style={{ marginTop: 2, width: 16, height: 16, accentColor: "#22c55e", cursor: "pointer" }} />
+//             <span style={{ fontSize: 14, color: "#475569", lineHeight: 1.6 }}>
+//               I acknowledge that I have reviewed the training materials and understand the responsibilities
+//               of all role holders in the compliance program. I confirm the team members added are authorized
+//               to access this platform.
+//             </span>
+//           </label>
+
+//           {/* Change 3: Button disabled until acknowledged */}
+//           <Btn onClick={saveStep3} loading={step3Saving} variant="success" disabled={!training.acknowledged}>
+//             Complete Setup <CheckCircle2 size={16} />
+//           </Btn>
+//           {!training.acknowledged && (
+//             <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 8, marginBottom: 0 }}>
+//               Tick the acknowledgement above to enable this button.
+//             </p>
+//           )}
+//         </div>
+//       </StepCard>
+//     </div>
+//   );
+// }
+
+import React, { useState, useEffect, useCallback } from "react";
+import adminAxios from "../../api/adminAxios";
+import {
+  CheckCircle2,
+  Circle,
+  Lock,
+  Building2,
+  Shield,
+  GraduationCap,
+  ChevronRight,
+  Plus,
+  Trash2,
+  User,
+  Mail,
+  Phone,
+  Globe,
+  MapPin,
+  Users,
+  Briefcase,
+  Calendar,
+  BookOpen,
+  Video,
+  FileText,
+  Award,
+  Loader2,
+  PartyPopper,
+  X,
+  AlertCircle,
+} from "lucide-react";
+
+const API = "https://api.calvant.com/user-service";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const ax = adminAxios; // already has Bearer + x-org + x-role interceptors
+
+// ─── Sub-component: Step Header ───────────────────────────────────────────────
+function StepCard({ number, title, icon: Icon, status, locked, onClick, children }) {
+  const isOpen = status === "open";
+  const isDone = status === "done";
+
   return (
-    <div style={S.field}>
-      <label style={S.label}>{label}{req && <span style={{ color: COLOR.danger }}> *</span>}</label>
-      {children}
-      {hint && <span style={{ fontSize: 12, color: COLOR.gray }}>{hint}</span>}
-      {error && <span style={S.err}>{error}</span>}
+    <div
+      style={{
+        border: isDone
+          ? "1.5px solid #22c55e"
+          : isOpen
+          ? "1.5px solid #6366f1"
+          : "1.5px solid #e2e8f0",
+        borderRadius: 16,
+        marginBottom: 20,
+        background: "#fff",
+        overflow: "hidden",
+        boxShadow: isOpen ? "0 4px 24px rgba(99,102,241,0.08)" : "0 1px 4px rgba(0,0,0,0.04)",
+        transition: "all 0.3s ease",
+      }}
+    >
+      {/* Header row */}
+      <div
+        onClick={!locked ? onClick : undefined}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          padding: "20px 24px",
+          cursor: locked ? "not-allowed" : "pointer",
+          userSelect: "none",
+          background: isDone
+            ? "linear-gradient(90deg,#f0fdf4,#fff)"
+            : isOpen
+            ? "linear-gradient(90deg,#eef2ff,#fff)"
+            : "#fafafa",
+        }}
+      >
+        {/* Step number bubble */}
+        <div
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            background: isDone ? "#22c55e" : isOpen ? "#6366f1" : "#e2e8f0",
+            color: "#fff",
+            fontWeight: 700,
+            fontSize: 16,
+          }}
+        >
+          {isDone ? <CheckCircle2 size={22} /> : locked ? <Lock size={18} /> : number}
+        </div>
+
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Icon size={18} color={isDone ? "#22c55e" : isOpen ? "#6366f1" : "#94a3b8"} />
+            <span
+              style={{
+                fontWeight: 700,
+                fontSize: 17,
+                color: locked ? "#94a3b8" : isDone ? "#15803d" : isOpen ? "#4f46e5" : "#1e293b",
+              }}
+            >
+              {title}
+            </span>
+          </div>
+          <div style={{ fontSize: 13, color: "#94a3b8", marginTop: 2 }}>
+            {locked
+              ? "Complete previous step to unlock"
+              : isDone
+              ? "Completed ✓"
+              : isOpen
+              ? "In progress — fill in the details below"
+              : "Click to begin"}
+          </div>
+        </div>
+
+        {!locked && (
+          <ChevronRight
+            size={20}
+            color="#cbd5e1"
+            style={{ transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}
+          />
+        )}
+      </div>
+
+      {/* Body — only rendered when open */}
+      {isOpen && <div style={{ padding: "0 24px 28px" }}>{children}</div>}
     </div>
   );
 }
 
-function Input({ value, onChange, placeholder, type = "text", disabled, ...rest }) {
+// ─── Sub-component: Field ─────────────────────────────────────────────────────
+function Field({ label, required, children, hint }) {
   return (
-    <input
-      style={{ ...S.input, background: disabled ? "var(--color-background-secondary)" : "var(--color-background-primary)", opacity: disabled ? 0.7 : 1 }}
-      value={value || ""} onChange={e => onChange(e.target.value)}
-      placeholder={placeholder} type={type} disabled={disabled} {...rest}
-    />
+    <div style={{ marginBottom: 18 }}>
+      <label
+        style={{
+          display: "block",
+          fontSize: 13,
+          fontWeight: 600,
+          color: "#475569",
+          marginBottom: 6,
+        }}
+      >
+        {label} {required && <span style={{ color: "#ef4444" }}>*</span>}
+      </label>
+      {children}
+      {hint && <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{hint}</div>}
+    </div>
   );
 }
 
-function Select({ value, onChange, options, placeholder }) {
+function Input({ value, onChange, placeholder, type = "text", readOnly, prefix }) {
   return (
-    <select style={{ ...S.input }} value={value || ""} onChange={e => onChange(e.target.value)}>
-      {placeholder && <option value="">{placeholder}</option>}
-      {options.map(o => <option key={o.value || o} value={o.value || o}>{o.label || o}</option>)}
+    <div style={{ position: "relative" }}>
+      {prefix && (
+        <span
+          style={{
+            position: "absolute",
+            left: 12,
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "#94a3b8",
+          }}
+        >
+          {prefix}
+        </span>
+      )}
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        readOnly={readOnly}
+        style={{
+          width: "100%",
+          padding: prefix ? "10px 12px 10px 36px" : "10px 12px",
+          border: "1.5px solid",
+          borderColor: readOnly ? "#f1f5f9" : "#e2e8f0",
+          borderRadius: 8,
+          fontSize: 14,
+          color: readOnly ? "#94a3b8" : "#1e293b",
+          background: readOnly ? "#f8fafc" : "#fff",
+          boxSizing: "border-box",
+          outline: "none",
+          transition: "border-color 0.15s",
+        }}
+        onFocus={(e) => !readOnly && (e.target.style.borderColor = "#6366f1")}
+        onBlur={(e) => !readOnly && (e.target.style.borderColor = "#e2e8f0")}
+      />
+    </div>
+  );
+}
+
+function Select({ value, onChange, options }) {
+  return (
+    <select
+      value={value}
+      onChange={onChange}
+      style={{
+        width: "100%",
+        padding: "10px 12px",
+        border: "1.5px solid #e2e8f0",
+        borderRadius: 8,
+        fontSize: 14,
+        color: "#1e293b",
+        background: "#fff",
+        boxSizing: "border-box",
+        outline: "none",
+        cursor: "pointer",
+      }}
+    >
+      <option value="">Select…</option>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
     </select>
   );
 }
 
-function Textarea({ value, onChange, placeholder, rows = 3 }) {
+function Btn({ children, onClick, variant = "primary", disabled, loading, small }) {
+  const styles = {
+    primary: { background: "#6366f1", color: "#fff", border: "none" },
+    secondary: { background: "#f1f5f9", color: "#475569", border: "1.5px solid #e2e8f0" },
+    danger: { background: "#fef2f2", color: "#ef4444", border: "1.5px solid #fecaca" },
+    success: { background: "#22c55e", color: "#fff", border: "none" },
+  };
   return (
-    <textarea
-      style={{ ...S.input, resize: "vertical", lineHeight: 1.6 }}
-      value={value || ""} onChange={e => onChange(e.target.value)}
-      placeholder={placeholder} rows={rows}
-    />
+    <button
+      onClick={onClick}
+      disabled={disabled || loading}
+      style={{
+        ...styles[variant],
+        padding: small ? "7px 14px" : "10px 22px",
+        borderRadius: 8,
+        fontWeight: 600,
+        fontSize: small ? 13 : 14,
+        cursor: disabled || loading ? "not-allowed" : "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        opacity: disabled || loading ? 0.6 : 1,
+        transition: "opacity 0.15s",
+      }}
+    >
+      {loading && <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />}
+      {children}
+    </button>
   );
 }
 
-function Badge({ children, color = "brand" }) {
-  const colors = {
-    brand:  { bg: COLOR.brandLight, text: COLOR.brandDark },
-    amber:  { bg: COLOR.amberLight, text: COLOR.amber },
-    danger: { bg: COLOR.dangerLight, text: COLOR.danger },
-    gray:   { bg: COLOR.grayLight,  text: COLOR.gray },
-  };
-  const c = colors[color] || colors.brand;
+function Tag({ label, color = "#6366f1" }) {
   return (
-    <span style={{ background: c.bg, color: c.text, fontSize: 11, fontWeight: 500, padding: "2px 9px", borderRadius: 20, whiteSpace: "nowrap" }}>
-      {children}
+    <span
+      style={{
+        display: "inline-block",
+        padding: "3px 10px",
+        background: color + "18",
+        color,
+        borderRadius: 20,
+        fontSize: 12,
+        fontWeight: 600,
+        border: `1px solid ${color}30`,
+      }}
+    >
+      {label}
     </span>
   );
 }
 
-function Spinner() {
-  return (
-    <span style={{ display: "inline-block", width: 16, height: 16, border: `2px solid ${COLOR.brandLight}`, borderTopColor: COLOR.brand, borderRadius: "50%", animation: "spin .7s linear infinite" }} />
-  );
-}
-
-// ── Step progress header ─────────────────────────────────────────────────────
-function StepHeader({ current, steps }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 32 }}>
-      {steps.map((step, i) => {
-        const done = step.done;
-        const active = i === current;
-        const locked = !step.done && i > current;
-        return (
-          <div key={i} style={{ display: "flex", alignItems: "center", flex: i < steps.length - 1 ? 1 : "none" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 80 }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: "50%",
-                background: done ? COLOR.brand : active ? COLOR.brandLight : COLOR.grayLight,
-                border: `2px solid ${done ? COLOR.brand : active ? COLOR.brand : "var(--color-border-secondary)"}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 14, fontWeight: 500,
-                color: done ? "#fff" : active ? COLOR.brandDark : COLOR.gray,
-                transition: "all .3s",
-              }}>
-                {done ? "✓" : i + 1}
-              </div>
-              <div style={{ fontSize: 11, fontWeight: active ? 500 : 400, color: active ? COLOR.brand : "var(--color-text-secondary)", textAlign: "center", whiteSpace: "nowrap" }}>
-                {step.label}
-              </div>
-            </div>
-            {i < steps.length - 1 && (
-              <div style={{ flex: 1, height: 2, background: done ? COLOR.brand : "var(--color-border-tertiary)", margin: "0 4px", marginBottom: 22, transition: "background .3s" }} />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  STEP 1 — Business Information
-// ════════════════════════════════════════════════════════════════════════════
-function Step1({ org, saved, onComplete }) {
-  const [form, setForm] = useState({
-    legalEntityName:          org?.name || "",
-    address:                  org?.address || "",
-    phone:                    org?.phone || "",
-    website:                  org?.website || "",
-    industry:                 saved?.industry || "",
-    totalEmployees:           saved?.totalEmployees || "",
-    officeLocations:          saved?.officeLocations || "",
-    complianceTeamSize:       saved?.complianceTeamSize || "",
-    submittedByName:          saved?.submittedByName || "",
-    submittedByDesignation:   saved?.submittedByDesignation || "",
-    submittedByEmail:         saved?.submittedByEmail || "",
-    primaryDomain:            saved?.primaryDomain || org?.website || "",
-    desiredSubdomain:         saved?.desiredSubdomain || "",
-    expectedGoLiveDate:       saved?.expectedGoLiveDate || "",
-    regulatoryDeadlines:      saved?.regulatoryDeadlines || "",
-    dataResidencyRequirements:saved?.dataResidencyRequirements || "",
-  });
-  const [errs, setErrs] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [apiErr, setApiErr] = useState("");
-
-  const set = (k) => (v) => setForm(f => ({ ...f, [k]: v }));
-
-  const validate = () => {
-    const e = {};
-    if (!form.legalEntityName.trim()) e.legalEntityName = "Required";
-    if (!form.submittedByName.trim()) e.submittedByName = "Required";
-    if (!form.submittedByEmail.trim()) e.submittedByEmail = "Required";
-    else if (!/\S+@\S+\.\S+/.test(form.submittedByEmail)) e.submittedByEmail = "Invalid email";
-    if (!form.expectedGoLiveDate) e.expectedGoLiveDate = "Required";
-    return e;
-  };
-
-  const save = async () => {
-    const e = validate();
-    setErrs(e);
-    if (Object.keys(e).length) return;
-    setSaving(true); setApiErr("");
-    try {
-      const res = await authFetch("/api/onboarding/step1", {
-        method: "PATCH",
-        body: JSON.stringify({ businessInfo: { ...form, totalEmployees: Number(form.totalEmployees) || null, officeLocations: Number(form.officeLocations) || null, complianceTeamSize: Number(form.complianceTeamSize) || null } }),
-      });
-      if (!res.ok) { const t = await res.text(); setApiErr(t); return; }
-      onComplete();
-    } catch (e) { setApiErr("Network error"); }
-    finally { setSaving(false); }
-  };
-
-  // Frameworks from org
-  const frameworks = org?.frameworks || [];
-  const tprm = org?.tprmEnabled;
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      {/* Pre-filled info chips */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 16px", background: COLOR.brandLight, borderRadius: 10, alignItems: "center" }}>
-        <span style={{ fontSize: 12, color: COLOR.brandDark, fontWeight: 500 }}>Pre-filled from setup:</span>
-        {frameworks.map(f => <Badge key={f}>{f}</Badge>)}
-        {tprm && <Badge color="amber">TPRM enabled</Badge>}
-        {org?.maxUsers && <Badge color="gray">User limit: {org.maxUsers}</Badge>}
-      </div>
-
-      {/* Section A — Client Overview */}
-      <div style={S.card}>
-        <div style={S.sectionTitle}>A · Client overview</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={S.grid2}>
-            <Field label="Legal entity name" req error={errs.legalEntityName}>
-              <Input value={form.legalEntityName} onChange={set("legalEntityName")} disabled />
-            </Field>
-            <Field label="Industry / sector">
-              <Input value={form.industry} onChange={set("industry")} placeholder="e.g. Financial Services" />
-            </Field>
-          </div>
-          <Field label="Registered address">
-            <Textarea value={form.address} onChange={set("address")} rows={2} placeholder="Full registered address" />
-          </Field>
-          <div style={S.grid3}>
-            <Field label="Phone">
-              <Input value={form.phone} onChange={set("phone")} placeholder="+91-XXXXXXXXXX" />
-            </Field>
-            <Field label="Website">
-              <Input value={form.website} onChange={set("website")} placeholder="www.example.com" />
-            </Field>
-            <Field label="Total employees (approx.)">
-              <Input value={form.totalEmployees} onChange={set("totalEmployees")} type="number" placeholder="e.g. 500" />
-            </Field>
-          </div>
-          <div style={S.grid2}>
-            <Field label="Office locations in scope">
-              <Input value={form.officeLocations} onChange={set("officeLocations")} type="number" placeholder="e.g. 3" />
-            </Field>
-            <Field label="Compliance team size">
-              <Input value={form.complianceTeamSize} onChange={set("complianceTeamSize")} type="number" placeholder="e.g. 7" />
-            </Field>
-          </div>
-        </div>
-      </div>
-
-      {/* Section B — Point of Contact */}
-      <div style={S.card}>
-        <div style={S.sectionTitle}>B · Point of contact (submitting this form)</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={S.grid3}>
-            <Field label="Full name" req error={errs.submittedByName}>
-              <Input value={form.submittedByName} onChange={set("submittedByName")} placeholder="Jane Doe" />
-            </Field>
-            <Field label="Designation">
-              <Input value={form.submittedByDesignation} onChange={set("submittedByDesignation")} placeholder="CISO" />
-            </Field>
-            <Field label="Email" req error={errs.submittedByEmail}>
-              <Input value={form.submittedByEmail} onChange={set("submittedByEmail")} type="email" placeholder="jane@company.com" />
-            </Field>
-          </div>
-        </div>
-      </div>
-
-      {/* Section C — Domain & Go-Live */}
-      <div style={S.card}>
-        <div style={S.sectionTitle}>C · Domain & go-live</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={S.grid2}>
-            <Field label="Primary domain" hint="Your company's main web domain">
-              <Input value={form.primaryDomain} onChange={set("primaryDomain")} placeholder="www.company.com" />
-            </Field>
-            <Field label="Desired Calvant subdomain" hint="e.g. company.calvant.com">
-              <Input value={form.desiredSubdomain} onChange={set("desiredSubdomain")} placeholder="company.calvant.com" />
-            </Field>
-          </div>
-          <div style={S.grid2}>
-            <Field label="Expected go-live date" req error={errs.expectedGoLiveDate}>
-              <Input value={form.expectedGoLiveDate} onChange={set("expectedGoLiveDate")} type="date" />
-            </Field>
-            <Field label="Regulatory deadlines" hint="Any compliance audit or regulatory deadlines">
-              <Input value={form.regulatoryDeadlines} onChange={set("regulatoryDeadlines")} placeholder="e.g. ISO audit Sep 2025" />
-            </Field>
-          </div>
-          <Field label="Data residency / sovereignty requirements">
-            <Input value={form.dataResidencyRequirements} onChange={set("dataResidencyRequirements")} placeholder="e.g. Data must stay in India" />
-          </Field>
-        </div>
-      </div>
-
-      {apiErr && <div style={{ padding: "10px 14px", background: COLOR.dangerLight, color: COLOR.danger, borderRadius: 8, fontSize: 13 }}>{apiErr}</div>}
-
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button style={S.btn("primary")} onClick={save} disabled={saving}>
-          {saving ? <Spinner /> : "Save & continue →"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  STEP 2 — Module Setup (Departments + Users)
-// ════════════════════════════════════════════════════════════════════════════
-const ROLE_OPTIONS = [
-  "steering_committee_member","risk_owner","risk_manager",
-  "process_owner","process_manager","auditor","audit_manager",
-  "dpo","ciso","aio","user",
-];
-
-const MODULE_ROLES = {
-  risk:       ["risk_owner","risk_manager"],
-  policies:   ["process_owner","process_manager"],
-  audit:      ["auditor","audit_manager"],
-  compliance: ["steering_committee_member","dpo","ciso","aio"],
-  tprm:       ["user"],
-};
-
-function DepartmentCreator({ org, deptIds, setDeptIds }) {
-  const [departments, setDepartments] = useState([]);
-  const [newDept, setNewDept] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
-  const [err, setErr] = useState("");
-
-  useEffect(() => {
-    authFetch("/api/departments").then(r => r.json()).then(d => { setDepartments(d); setLoading(false); }).catch(() => setLoading(false));
-  }, []);
-
-  const add = async () => {
-    if (!newDept.trim()) return;
-    setAdding(true); setErr("");
-    try {
-      const res = await authFetch("/api/departments", { method: "POST", body: JSON.stringify({ name: newDept.trim() }) });
-      if (!res.ok) { const t = await res.text(); setErr(t); return; }
-      const dept = await res.json();
-      setDepartments(d => [...d, dept]);
-      setDeptIds(ids => [...ids, dept.id]);
-      setNewDept("");
-    } catch { setErr("Failed to add department"); }
-    finally { setAdding(false); }
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", gap: 8 }}>
-        <Input value={newDept} onChange={setNewDept} placeholder="Department name (e.g. IT, Finance, HR)" />
-        <button style={{ ...S.btn("primary"), whiteSpace: "nowrap" }} onClick={add} disabled={adding}>
-          {adding ? <Spinner /> : "+ Add"}
-        </button>
-      </div>
-      {err && <span style={S.err}>{err}</span>}
-      {loading ? <span style={{ fontSize: 13, color: COLOR.gray }}>Loading…</span> :
-        departments.length === 0 ? <span style={{ fontSize: 13, color: COLOR.gray }}>No departments yet. Add your first one above.</span> :
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {departments.map(d => (
-            <span key={d.id} style={{ ...S.tag(), cursor: "default" }}>
-              ✓ {d.name}
-            </span>
-          ))}
-        </div>
-      }
-    </div>
-  );
-}
-
-function UserForm({ org, departments, onCreated }) {
-  const blank = { name: "", email: "", password: "", role: [], department: [], modules: [] };
-  const [form, setForm] = useState(blank);
-  const [errs, setErrs] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [apiErr, setApiErr] = useState("");
-  const [success, setSuccess] = useState("");
-
-  const set = k => v => setForm(f => ({ ...f, [k]: v }));
-
-  const toggleRole = r => setForm(f => ({ ...f, role: f.role.includes(r) ? f.role.filter(x => x !== r) : [...f.role, r] }));
-  const toggleDept = id => setForm(f => ({ ...f, department: f.department.includes(id) ? f.department.filter(x => x !== id) : [...f.department, id] }));
-  const toggleModule = m => setForm(f => ({ ...f, modules: f.modules.includes(m) ? f.modules.filter(x => x !== m) : [...f.modules, m] }));
-
-  const validate = () => {
-    const e = {};
-    if (!form.name.trim())  e.name = "Required";
-    if (!form.email.trim()) e.email = "Required";
-    else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = "Invalid email";
-    if (!form.password || form.password.length < 6) e.password = "Min 6 characters";
-    if (!form.role.length) e.role = "Select at least one role";
-    return e;
-  };
-
-  const submit = async () => {
-    const e = validate();
-    setErrs(e); setApiErr(""); setSuccess("");
-    if (Object.keys(e).length) return;
-    setSaving(true);
-    try {
-      const payload = { ...form, organization: org?.name };
-      const res = await authFetch("/api/users/register", { method: "POST", body: JSON.stringify(payload) });
-      if (!res.ok) { const t = await res.text(); setApiErr(t); return; }
-      const user = await res.json();
-      setSuccess(`${user.name} created successfully`);
-      onCreated(user.id);
-      setForm(blank);
-    } catch { setApiErr("Network error"); }
-    finally { setSaving(false); }
-  };
-
-  const modules = ["risk","policies","audit","compliance","tprm"].filter(m => {
-    if (m === "tprm") return org?.tprmEnabled;
-    return true;
-  });
-
-  return (
-    <div style={{ ...S.card, display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={S.sectionTitle}>Add a user</div>
-      <div style={S.grid2}>
-        <Field label="Full name" req error={errs.name}>
-          <Input value={form.name} onChange={set("name")} placeholder="Jane Doe" />
-        </Field>
-        <Field label="Email" req error={errs.email}>
-          <Input value={form.email} onChange={set("email")} type="email" placeholder="jane@company.com" />
-        </Field>
-      </div>
-      <Field label="Temporary password" req error={errs.password}>
-        <Input value={form.password} onChange={set("password")} type="password" placeholder="Min 6 characters" />
-      </Field>
-
-      <Field label="Roles" req error={errs.role}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {ROLE_OPTIONS.map(r => (
-            <button key={r} style={S.pill(form.role.includes(r))} onClick={() => toggleRole(r)}>{r.replace(/_/g," ")}</button>
-          ))}
-        </div>
-      </Field>
-
-      {form.role.includes("user") && (
-        <Field label="Module access" hint="Required for 'user' role">
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {modules.map(m => (
-              <button key={m} style={S.pill(form.modules.includes(m))} onClick={() => toggleModule(m)}>{m}</button>
-            ))}
-          </div>
-        </Field>
-      )}
-
-      {departments.length > 0 && (
-        <Field label="Departments">
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {departments.map(d => (
-              <button key={d.id} style={S.pill(form.department.includes(d.id))} onClick={() => toggleDept(d.id)}>{d.name}</button>
-            ))}
-          </div>
-        </Field>
-      )}
-
-      {apiErr && <div style={{ padding: "8px 12px", background: COLOR.dangerLight, color: COLOR.danger, borderRadius: 8, fontSize: 13 }}>{apiErr}</div>}
-      {success && <div style={{ padding: "8px 12px", background: COLOR.brandLight, color: COLOR.brandDark, borderRadius: 8, fontSize: 13 }}>✓ {success}</div>}
-
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button style={S.btn("primary")} onClick={submit} disabled={saving}>
-          {saving ? <Spinner /> : "Create user"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function Step2({ org, onComplete, savedUserIds, savedDeptIds }) {
-  const [departments, setDepartments] = useState([]);
-  const [deptIds, setDeptIds] = useState(savedDeptIds || []);
-  const [userIds, setUserIds] = useState(savedUserIds || []);
-  const [createdUsers, setCreatedUsers] = useState([]);
-  const [saving, setSaving] = useState(false);
-  const [apiErr, setApiErr] = useState("");
-  const [deptErr, setDeptErr] = useState("");
-
-  useEffect(() => {
-    authFetch("/api/departments").then(r => r.json()).then(setDepartments).catch(() => {});
-  }, [deptIds]);
-
-  const onUserCreated = (id) => setUserIds(ids => [...ids, id]);
-
-  const complete = async () => {
-    if (departments.length === 0) { setDeptErr("Please create at least one department before continuing."); return; }
-    setDeptErr("");
-    setSaving(true); setApiErr("");
-    try {
-      const res = await authFetch("/api/onboarding/step2", {
-        method: "PATCH",
-        body: JSON.stringify({ onboardedUserIds: userIds, onboardedDepartmentIds: deptIds }),
-      });
-      if (!res.ok) { const t = await res.text(); setApiErr(t); return; }
-      onComplete();
-    } catch { setApiErr("Network error"); }
-    finally { setSaving(false); }
-  };
-
-  const modules = ["risk","policies","audit","compliance"];
-  if (org?.tprmEnabled) modules.push("tprm");
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      {/* Module Overview */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10 }}>
-        {modules.map(m => {
-          const icons = { risk: "🛡", policies: "📋", audit: "🔍", compliance: "✅", tprm: "🤝" };
-          return (
-            <div key={m} style={{ ...S.card, textAlign: "center", padding: "14px 10px" }}>
-              <div style={{ fontSize: 22, marginBottom: 4 }}>{icons[m]}</div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: COLOR.brand, textTransform: "uppercase", letterSpacing: "0.06em" }}>{m}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Departments */}
-      <div style={S.card}>
-        <div style={S.sectionTitle}>Step 2a · Create departments first</div>
-        <p style={{ fontSize: 13, color: COLOR.gray, marginBottom: 12, marginTop: 0 }}>
-          Departments are needed before assigning users. Create all departments for your org here.
-        </p>
-        <DepartmentCreator org={org} deptIds={deptIds} setDeptIds={setDeptIds} />
-        {deptErr && <div style={{ marginTop: 10, padding: "8px 12px", background: COLOR.dangerLight, color: COLOR.danger, borderRadius: 8, fontSize: 13 }}>{deptErr}</div>}
-      </div>
-
-      {/* Users */}
-      <div>
-        <div style={{ ...S.sectionTitle, marginBottom: 16 }}>Step 2b · Register users by role</div>
-        <div style={{ padding: "10px 14px", background: COLOR.grayLight, borderRadius: 8, fontSize: 13, color: COLOR.gray, marginBottom: 16 }}>
-          Create users for each module. Each user's module access is automatically set from their role — except for "user" role which requires explicit module selection.
-        </div>
-
-        {/* Role → Module guide */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 20 }}>
-          {Object.entries(MODULE_ROLES).filter(([m]) => m !== "tprm" || org?.tprmEnabled).map(([mod, roles]) => (
-            <div key={mod} style={{ ...S.card, padding: "12px" }}>
-              <div style={{ fontSize: 11, fontWeight: 500, color: COLOR.brand, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{mod}</div>
-              {roles.map(r => <div key={r} style={{ fontSize: 12, color: "var(--color-text-secondary)", padding: "2px 0" }}>· {r.replace(/_/g," ")}</div>)}
-            </div>
-          ))}
-        </div>
-
-        <UserForm org={org} departments={departments} onCreated={onUserCreated} />
-
-        {userIds.length > 0 && (
-          <div style={{ marginTop: 14, padding: "10px 14px", background: COLOR.brandLight, borderRadius: 8 }}>
-            <span style={{ fontSize: 13, color: COLOR.brandDark, fontWeight: 500 }}>{userIds.length} user{userIds.length !== 1 ? "s" : ""} added in this session</span>
-          </div>
-        )}
-      </div>
-
-      {apiErr && <div style={{ padding: "10px 14px", background: COLOR.dangerLight, color: COLOR.danger, borderRadius: 8, fontSize: 13 }}>{apiErr}</div>}
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 12, color: COLOR.gray }}>You can always add more users later from the Users panel.</span>
-        <button style={S.btn("primary")} onClick={complete} disabled={saving}>
-          {saving ? <Spinner /> : "Complete step 2 →"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  STEP 3 — Training
-// ════════════════════════════════════════════════════════════════════════════
-const TRAINING_RESOURCES = [
-  { title: "Platform Overview", desc: "Get familiar with the Calvant dashboard, navigation, and key modules.", duration: "15 min", icon: "🏠" },
-  { title: "Risk Module Guide", desc: "Learn how to create, assign, and track risks in the risk register.", duration: "20 min", icon: "🛡" },
-  { title: "Policy Management", desc: "Upload, version, and assign policies and SOPs to stakeholders.", duration: "18 min", icon: "📋" },
-  { title: "Audit Workflows",    desc: "Configure audit schedules, assign auditors, and review evidence.", duration: "20 min", icon: "🔍" },
-  { title: "Compliance Frameworks", desc: "Map controls to ISO 27001, SOC 2, GDPR, and other frameworks.", duration: "25 min", icon: "✅" },
-  { title: "User & Role Admin", desc: "Manage users, departments, and role-based access from the admin panel.", duration: "12 min", icon: "👥" },
-];
-
-function Step3({ saved, onComplete }) {
-  const [form, setForm] = useState({
-    preferredDate:       saved?.preferredDate || "",
-    trainingMode:        saved?.trainingMode || "",
-    trainingContactName: saved?.trainingContactName || "",
-    trainingContactEmail:saved?.trainingContactEmail || "",
-    trainingContactPhone:saved?.trainingContactPhone || "",
-    additionalNotes:     saved?.additionalNotes || "",
-    acknowledged:        saved?.acknowledged || false,
-  });
-  const [errs, setErrs] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [apiErr, setApiErr] = useState("");
-
-  const set = k => v => setForm(f => ({ ...f, [k]: v }));
-
-  const validate = () => {
-    const e = {};
-    if (!form.preferredDate)            e.preferredDate = "Required";
-    if (!form.trainingMode)             e.trainingMode  = "Required";
-    if (!form.trainingContactName.trim()) e.trainingContactName = "Required";
-    if (!form.trainingContactEmail.trim()) e.trainingContactEmail = "Required";
-    else if (!/\S+@\S+\.\S+/.test(form.trainingContactEmail)) e.trainingContactEmail = "Invalid email";
-    if (!form.acknowledged)             e.acknowledged  = "Please acknowledge the training materials";
-    return e;
-  };
-
-  const save = async () => {
-    const e = validate();
-    setErrs(e);
-    if (Object.keys(e).length) return;
-    setSaving(true); setApiErr("");
-    try {
-      const res = await authFetch("/api/onboarding/step3", { method: "PATCH", body: JSON.stringify({ trainingInfo: form }) });
-      if (!res.ok) { const t = await res.text(); setApiErr(t); return; }
-      onComplete();
-    } catch { setApiErr("Network error"); }
-    finally { setSaving(false); }
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      {/* Training resource library */}
-      <div>
-        <div style={S.sectionTitle}>Training resource library</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
-          {TRAINING_RESOURCES.map((r, i) => (
-            <div key={i} style={{ ...S.card, display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <span style={{ fontSize: 20 }}>{r.icon}</span>
-                <span style={{ fontSize: 11, color: COLOR.gray, background: COLOR.grayLight, padding: "2px 8px", borderRadius: 12 }}>{r.duration}</span>
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-primary)" }}>{r.title}</div>
-              <div style={{ fontSize: 12, color: COLOR.gray, lineHeight: 1.5 }}>{r.desc}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Scheduling form */}
-      <div style={S.card}>
-        <div style={S.sectionTitle}>Schedule your training session</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={S.grid2}>
-            <Field label="Preferred date" req error={errs.preferredDate}>
-              <Input value={form.preferredDate} onChange={set("preferredDate")} type="date" />
-            </Field>
-            <Field label="Training mode" req error={errs.trainingMode}>
-              <Select value={form.trainingMode} onChange={set("trainingMode")}
-                placeholder="Select mode"
-                options={["Online","Offline","Both – Online + Offline"]} />
-            </Field>
-          </div>
-
-          <div style={S.sectionTitle}>Training point of contact</div>
-          <div style={S.grid3}>
-            <Field label="Full name" req error={errs.trainingContactName}>
-              <Input value={form.trainingContactName} onChange={set("trainingContactName")} placeholder="Jane Doe" />
-            </Field>
-            <Field label="Email" req error={errs.trainingContactEmail}>
-              <Input value={form.trainingContactEmail} onChange={set("trainingContactEmail")} type="email" placeholder="jane@company.com" />
-            </Field>
-            <Field label="Phone">
-              <Input value={form.trainingContactPhone} onChange={set("trainingContactPhone")} placeholder="+91-XXXXXXXXXX" />
-            </Field>
-          </div>
-
-          <Field label="Additional notes">
-            <Textarea value={form.additionalNotes} onChange={set("additionalNotes")} placeholder="Any specific topics, timing preferences, or questions for the Calvant team…" />
-          </Field>
-        </div>
-      </div>
-
-      {/* Acknowledgement */}
-      <div style={{ padding: "14px 16px", background: COLOR.amberLight, borderRadius: 10, display: "flex", gap: 12, alignItems: "flex-start" }}>
-        <input
-          type="checkbox"
-          id="ack"
-          checked={form.acknowledged}
-          onChange={e => set("acknowledged")(e.target.checked)}
-          style={{ marginTop: 2, accentColor: COLOR.brand, width: 16, height: 16, cursor: "pointer" }}
-        />
-        <label htmlFor="ack" style={{ fontSize: 13, color: COLOR.amber, cursor: "pointer", lineHeight: 1.6 }}>
-          I confirm that I have reviewed the training resources above and understand that a Calvant team member will reach out to confirm the training schedule.
-        </label>
-      </div>
-      {errs.acknowledged && <span style={S.err}>{errs.acknowledged}</span>}
-
-      {apiErr && <div style={{ padding: "10px 14px", background: COLOR.dangerLight, color: COLOR.danger, borderRadius: 8, fontSize: 13 }}>{apiErr}</div>}
-
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button style={S.btn("primary")} onClick={save} disabled={saving}>
-          {saving ? <Spinner /> : "Complete onboarding →"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  COMPLETION SCREEN
-// ════════════════════════════════════════════════════════════════════════════
-function CompletionScreen({ orgName }) {
-  return (
-    <div style={{ textAlign: "center", padding: "48px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
-      <div style={{ width: 72, height: 72, borderRadius: "50%", background: COLOR.brandLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32 }}>
-        🎉
-      </div>
-      <div>
-        <h2 style={{ fontSize: 24, fontWeight: 500, margin: "0 0 8px", color: "var(--color-text-primary)" }}>
-          Welcome to Calvant, {orgName}!
-        </h2>
-        <p style={{ fontSize: 15, color: COLOR.gray, margin: 0, maxWidth: 480, lineHeight: 1.7 }}>
-          Your onboarding is complete. Your workspace is set up and your team has been invited. A Calvant account manager will be in touch to confirm your training session.
-        </p>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, width: "100%", maxWidth: 480 }}>
-        {[
-          { icon: "✓", label: "Business info saved" },
-          { icon: "✓", label: "Team configured" },
-          { icon: "✓", label: "Training scheduled" },
-        ].map((item, i) => (
-          <div key={i} style={{ padding: "12px", background: COLOR.brandLight, borderRadius: 10, textAlign: "center" }}>
-            <div style={{ fontSize: 18, color: COLOR.brand, marginBottom: 4 }}>{item.icon}</div>
-            <div style={{ fontSize: 11, fontWeight: 500, color: COLOR.brandDark }}>{item.label}</div>
-          </div>
-        ))}
-      </div>
-      <p style={{ fontSize: 12, color: COLOR.gray }}>
-        You can now close this wizard — all settings are accessible from your admin panel.
-      </p>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  MAIN COMPONENT
-// ════════════════════════════════════════════════════════════════════════════
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function OnboardingModule() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState("");
   const [progress, setProgress] = useState(null);
-  const [org, setOrg]           = useState(null);
-  const [activeStep, setActiveStep] = useState(0);  // 0-based
+  const [org, setOrg] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeStep, setActiveStep] = useState(1);
+  const [error, setError] = useState(null);
 
-  const fetchProgress = useCallback(async () => {
+  // Step 1 state
+  const [biz, setBiz] = useState({
+    address: "",
+    phone: "",
+    website: "",
+    industry: "",
+    totalEmployees: "",
+    officeLocations: "",
+    complianceTeamSize: "",
+    primaryContactName: "",
+    primaryContactEmail: "",
+    primaryContactPhone: "",
+    domain: "",
+    goLiveDate: "",
+  });
+  const [step1Saving, setStep1Saving] = useState(false);
+
+  // Step 2 state
+  const [departments, setDepartments] = useState([]);
+  const [newDeptName, setNewDeptName] = useState("");
+  const [deptSaving, setDeptSaving] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    role: "",
+    department: "",
+    password: "",
+  });
+  const [userSaving, setUserSaving] = useState(false);
+  const [step2Saving, setStep2Saving] = useState(false);
+
+  // Step 3 state
+  const [training, setTraining] = useState({
+    preferredDate: "",
+    mode: "",
+    contactName: "",
+    contactEmail: "",
+    acknowledged: false,
+  });
+  const [step3Saving, setStep3Saving] = useState(false);
+
+  // ── Load onboarding data on mount ──────────────────────────────────────────
+  const fetchOnboarding = useCallback(async () => {
     try {
-      const res = await authFetch("/api/onboarding");
-      if (!res.ok) { setError("Could not load onboarding data."); return; }
-      const data = await res.json();
-      setProgress(data.progress);
-      setOrg(data.organization);
-      // Resume at the first incomplete step
-      if (!data.progress.step1Completed)      setActiveStep(0);
-      else if (!data.progress.step2Completed) setActiveStep(1);
-      else if (!data.progress.step3Completed) setActiveStep(2);
-      else                                     setActiveStep(3);  // all done
-    } catch { setError("Network error. Please refresh."); }
-    finally { setLoading(false); }
+      setLoading(true);
+      const res = await ax.get(`${API}/api/onboarding`);
+      const { progress: p, organization: o } = res.data;
+      setProgress(p);
+      setOrg(o);
+      // Pre-fill step 1 from org
+      setBiz((prev) => ({
+        ...prev,
+        address: o.address || "",
+        phone: o.phone || "",
+        website: o.website || "",
+        ...(p.businessInfo || {}),
+      }));
+      if (p.trainingInfo) setTraining(p.trainingInfo);
+      // Determine active step
+      if (p.step3Completed) setActiveStep(3);
+      else if (p.step2Completed) setActiveStep(3);
+      else if (p.step1Completed) setActiveStep(2);
+      else setActiveStep(1);
+      // Load departments from this org
+      const deptRes = await ax.get(`${API}/api/departments`);
+      setDepartments(deptRes.data || []);
+    } catch (e) {
+      if (e.response?.status === 422 || e.response?.status === 403) {
+        setError("STALE_TOKEN");
+      } else {
+        setError("Failed to load onboarding data. Please refresh.");
+      }
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { fetchProgress(); }, [fetchProgress]);
+  useEffect(() => {
+    fetchOnboarding();
+  }, [fetchOnboarding]);
 
-  const steps = [
-    { label: "Business info",  done: progress?.step1Completed },
-    { label: "Module setup",   done: progress?.step2Completed },
-    { label: "Training",       done: progress?.step3Completed },
+  // ── Step 1 save ────────────────────────────────────────────────────────────
+  const saveStep1 = async () => {
+    const required = ["industry", "primaryContactName", "primaryContactEmail"];
+    for (const f of required) {
+      if (!biz[f]) {
+        setError(`Please fill in: ${f.replace(/([A-Z])/g, " $1").toLowerCase()}`);
+        return;
+      }
+    }
+    try {
+      setStep1Saving(true);
+      setError(null);
+      await ax.patch(`${API}/api/onboarding/step1`, { businessInfo: biz });
+      const res = await ax.get(`${API}/api/onboarding`);
+      setProgress(res.data.progress);
+      setActiveStep(2);
+    } catch (e) {
+      setError(e.response?.data?.message || "Failed to save Step 1.");
+    } finally {
+      setStep1Saving(false);
+    }
+  };
+
+  // ── Add department ─────────────────────────────────────────────────────────
+  const addDepartment = async () => {
+    if (!newDeptName.trim()) return;
+    try {
+      setDeptSaving(true);
+      const res = await ax.post(`${API}/api/departments`, { name: newDeptName });
+      setDepartments((d) => [...d, res.data]);
+      setNewDeptName("");
+    } catch (e) {
+      setError(e.response?.data || "Failed to add department.");
+    } finally {
+      setDeptSaving(false);
+    }
+  };
+
+  const deleteDepartment = async (id) => {
+    try {
+      await ax.delete(`${API}/api/departments/${id}`);
+      setDepartments((d) => d.filter((x) => x.id !== id));
+    } catch (e) {
+      setError("Failed to delete department.");
+    }
+  };
+
+  // ── Create user (step 2) ───────────────────────────────────────────────────
+  const createUser = async () => {
+    const req = ["name", "email", "role", "password"];
+    for (const f of req) {
+      if (!newUser[f]) {
+        setError(`Please fill: ${f}`);
+        return;
+      }
+    }
+    try {
+      setUserSaving(true);
+      setError(null);
+      const res = await ax.post(`${API}/api/users/register`, {
+        ...newUser,
+        username: newUser.email,
+      });
+      setUsers((u) => [...u, res.data]);
+      setNewUser({ name: "", email: "", role: "", department: "", password: "" });
+    } catch (e) {
+      setError(e.response?.data?.message || "Failed to create user.");
+    } finally {
+      setUserSaving(false);
+    }
+  };
+
+  const removeUser = (email) => setUsers((u) => u.filter((x) => x.email !== email));
+
+  // ── Step 2 save ────────────────────────────────────────────────────────────
+  const saveStep2 = async () => {
+    try {
+      setStep2Saving(true);
+      setError(null);
+      await ax.patch(`${API}/api/onboarding/step2`, {
+        departmentIds: departments.map((d) => d.id),
+        userIds: users.map((u) => u.id || u.email),
+      });
+      const res = await ax.get(`${API}/api/onboarding`);
+      setProgress(res.data.progress);
+      setActiveStep(3);
+    } catch (e) {
+      setError(typeof e.response?.data === "string" ? e.response.data : (e.response?.data?.message || "Failed to save Step 2."));
+    } finally {
+      setStep2Saving(false);
+    }
+  };
+
+  // ── Step 3 save ────────────────────────────────────────────────────────────
+  const saveStep3 = async () => {
+    if (!training.acknowledged) {
+      setError("Please acknowledge that you have reviewed the training materials.");
+      return;
+    }
+    try {
+      setStep3Saving(true);
+      setError(null);
+      await ax.patch(`${API}/api/onboarding/step3`, {
+        trainingInfo: {
+          preferredDate: training.preferredDate,
+          acknowledged:  true,
+        },
+      });
+      const res = await ax.get(`${API}/api/onboarding`);
+      setProgress(res.data.progress);
+    } catch (e) {
+      setError(typeof e.response?.data === "string" ? e.response.data : (e.response?.data?.message || "Failed to save Step 3."));
+    } finally {
+      setStep3Saving(false);
+    }
+  };
+
+  // ── Role options (matching your existing backend roles) ───────────────────
+  const ROLE_OPTIONS = [
+    { value: "risk_owner", label: "Risk Owner" },
+    { value: "risk_manager", label: "Risk Manager" },
+    { value: "process_owner", label: "Process Owner" },
+    { value: "auditor", label: "Auditor" },
+    { value: "policy_manager", label: "Policy Manager" },
+    { value: "compliance_officer", label: "Compliance Officer" },
+    ...(org?.tprmEnabled ? [{ value: "tprm_manager", label: "TPRM Manager" }] : []),
   ];
 
-  const advance = async () => {
-    await fetchProgress();   // re-fetch persisted state from server
-  };
+  const INDUSTRY_OPTIONS = [
+    { value: "Technology", label: "Technology" },
+    { value: "Banking & Finance", label: "Banking & Finance" },
+    { value: "Healthcare", label: "Healthcare" },
+    { value: "Manufacturing", label: "Manufacturing" },
+    { value: "Retail", label: "Retail" },
+    { value: "Government", label: "Government" },
+    { value: "Education", label: "Education" },
+    { value: "Energy", label: "Energy" },
+    { value: "Telecom", label: "Telecom" },
+    { value: "Other", label: "Other" },
+  ];
 
-  if (loading) return (
-    <div style={{ padding: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 12, color: COLOR.gray }}>
-      <Spinner /> <span style={{ fontSize: 14 }}>Loading your onboarding…</span>
-    </div>
-  );
+  const TRAINING_RESOURCES = [
+    {
+      icon: BookOpen,
+      title: "ISO 27001 Fundamentals",
+      desc: "Overview of the information security management standard.",
+      tag: "ISO 27001",
+      color: "#6366f1",
+    },
+    {
+      icon: Shield,
+      title: "Risk Assessment Guide",
+      desc: "How to identify, evaluate, and treat information security risks.",
+      tag: "Risk",
+      color: "#8b5cf6",
+    },
+    {
+      icon: FileText,
+      title: "Policy Writing Templates",
+      desc: "Ready-to-use templates for mandatory ISO/SOC2 policies.",
+      tag: "Policy",
+      color: "#0ea5e9",
+    },
+    {
+      icon: Video,
+      title: "Platform Walkthrough Video",
+      desc: "30-minute guided tour of all modules in the platform.",
+      tag: "Platform",
+      color: "#f59e0b",
+    },
+    {
+      icon: Award,
+      title: "Audit Readiness Checklist",
+      desc: "Step-by-step checklist to prepare for your first external audit.",
+      tag: "Audit",
+      color: "#22c55e",
+    },
+    {
+      icon: Users,
+      title: "Team Roles & Responsibilities",
+      desc: "Who does what in your compliance program.",
+      tag: "Team",
+      color: "#ef4444",
+    },
+  ];
 
-  if (error) return (
-    <div style={{ padding: 24, background: COLOR.dangerLight, color: COLOR.danger, borderRadius: 10, fontSize: 14 }}>{error}</div>
-  );
+  // ─────────────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: 400,
+          gap: 12,
+          color: "#6366f1",
+          fontSize: 16,
+          fontWeight: 600,
+        }}
+      >
+        <Loader2 size={24} style={{ animation: "spin 1s linear infinite" }} />
+        Loading onboarding…
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
 
-  const allDone = progress?.step1Completed && progress?.step2Completed && progress?.step3Completed;
+  // ── Stale token screen ────────────────────────────────────────────────────────
+  if (error === "STALE_TOKEN") {
+    return (
+      <div style={{ maxWidth: 480, margin: "80px auto", textAlign: "center", padding: "0 24px" }}>
+        <div style={{ fontSize: 56, marginBottom: 20 }}>🔐</div>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1e293b", marginBottom: 12 }}>
+          Session needs a refresh
+        </h2>
+        <p style={{ fontSize: 15, color: "#64748b", lineHeight: 1.7, marginBottom: 28 }}>
+          Your login session is missing organization details. This happens when your
+          account was set up recently or your session is outdated.
+          <br /><br />
+          <strong>Please log out and log back in</strong> — it takes 10 seconds and fixes this.
+        </p>
+        <button
+          onClick={() => {
+            sessionStorage.clear();
+            window.location.href = "/login";
+          }}
+          style={{
+            background: "#6366f1",
+            color: "#fff",
+            border: "none",
+            padding: "12px 28px",
+            borderRadius: 8,
+            fontWeight: 700,
+            fontSize: 15,
+            cursor: "pointer",
+          }}
+        >
+          Log out &amp; refresh session
+        </button>
+      </div>
+    );
+  }
 
-  return (
-    <div style={{ fontFamily: "var(--font-sans, system-ui, sans-serif)", maxWidth: 860, margin: "0 auto", padding: "2rem 1rem" }}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-
-      {/* Header */}
-      <div style={{ marginBottom: 32 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: COLOR.brand, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ color: "#fff", fontSize: 14, fontWeight: 700 }}>C</span>
-          </div>
-          <span style={{ fontSize: 13, fontWeight: 500, color: COLOR.gray, letterSpacing: "0.04em", textTransform: "uppercase" }}>Calvant · Onboarding</span>
+  // ── All done — Greeting screen ─────────────────────────────────────────────
+  if (progress?.step1Completed && progress?.step2Completed && progress?.step3Completed) {
+    return (
+      <div
+        style={{
+          maxWidth: 640,
+          margin: "60px auto",
+          textAlign: "center",
+          padding: "0 24px",
+        }}
+      >
+        <style>{`@keyframes pop{0%{transform:scale(0.5);opacity:0}80%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}`}</style>
+        <div style={{ animation: "pop 0.6s ease forwards", fontSize: 72 }}>
+          <PartyPopper size={72} color="#6366f1" />
         </div>
-        <h1 style={{ fontSize: 22, fontWeight: 500, margin: "0 0 4px", color: "var(--color-text-primary)" }}>
-          {allDone ? `Welcome, ${org?.name}` : `Set up ${org?.name || "your workspace"}`}
+        <h1
+          style={{
+            fontSize: 32,
+            fontWeight: 800,
+            color: "#1e293b",
+            margin: "20px 0 12px",
+          }}
+        >
+          Welcome aboard, {org?.name}!
         </h1>
-        {!allDone && (
-          <p style={{ fontSize: 14, color: COLOR.gray, margin: 0 }}>
-            Complete the three steps below to get your team fully up and running on Calvant.
-          </p>
-        )}
+        <p style={{ fontSize: 16, color: "#64748b", lineHeight: 1.7, marginBottom: 32 }}>
+          Your organization is fully set up and ready to go. Your compliance journey starts now —
+          head to your dashboard to begin.
+        </p>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3,1fr)",
+            gap: 16,
+            marginBottom: 36,
+          }}
+        >
+          {[
+            { icon: Building2, label: "Business Info", color: "#6366f1" },
+            { icon: Shield, label: "Modules & Team", color: "#8b5cf6" },
+            { icon: GraduationCap, label: "Training", color: "#22c55e" },
+          ].map(({ icon: Icon, label, color }) => (
+            <div
+              key={label}
+              style={{
+                background: "#f8fafc",
+                border: "1.5px solid #e2e8f0",
+                borderRadius: 12,
+                padding: "20px 12px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <CheckCircle2 size={28} color={color} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>{label}</span>
+            </div>
+          ))}
+        </div>
+        <Btn onClick={() => (window.location.href = "/admin/dashboard")} variant="primary">
+          Go to Dashboard <ChevronRight size={16} />
+        </Btn>
+      </div>
+    );
+  }
+
+  // ─── Main Wizard ──────────────────────────────────────────────────────────
+  return (
+    <div style={{ maxWidth: 780, margin: "0 auto", padding: "32px 24px" }}>
+      <style>{`
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+        .onb-fade{animation:fadeIn 0.3s ease}
+        input:focus,select:focus{outline:none;border-color:#6366f1!important;box-shadow:0 0 0 3px rgba(99,102,241,0.12)}
+      `}</style>
+
+      {/* Page header */}
+      <div style={{ marginBottom: 32 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, color: "#1e293b", margin: 0 }}>
+          Organization Setup
+        </h1>
+        <p style={{ fontSize: 15, color: "#64748b", marginTop: 6 }}>
+          Complete the three steps below to finish setting up <strong>{org?.name}</strong>.
+        </p>
+
+        {/* Progress bar */}
+        <div style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 12 }}>
+          {[1, 2, 3].map((n) => {
+            const done =
+              n === 1
+                ? progress?.step1Completed
+                : n === 2
+                ? progress?.step2Completed
+                : progress?.step3Completed;
+            return (
+              <React.Fragment key={n}>
+                <div
+                  style={{
+                    height: 6,
+                    flex: 1,
+                    borderRadius: 4,
+                    background: done ? "#6366f1" : "#e2e8f0",
+                    transition: "background 0.4s ease",
+                  }}
+                />
+              </React.Fragment>
+            );
+          })}
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#6366f1", whiteSpace: "nowrap" }}>
+            {progress?.step3Completed ? 3 : progress?.step2Completed ? 2 : progress?.step1Completed ? 1 : 0} / 3
+          </span>
+        </div>
       </div>
 
-      {allDone ? (
-        <CompletionScreen orgName={org?.name} />
-      ) : (
-        <>
-          <StepHeader current={activeStep} steps={steps} />
-
-          {/* Step panels */}
-          {activeStep === 0 && (
-            <Step1
-              org={org}
-              saved={progress?.businessInfo}
-              onComplete={advance}
-            />
-          )}
-          {activeStep === 1 && (
-            <Step2
-              org={org}
-              savedUserIds={progress?.onboardedUserIds}
-              savedDeptIds={progress?.onboardedDepartmentIds}
-              onComplete={advance}
-            />
-          )}
-          {activeStep === 2 && (
-            <Step3
-              saved={progress?.trainingInfo}
-              onComplete={advance}
-            />
-          )}
-        </>
+      {/* Error banner */}
+      {error && (
+        <div
+          style={{
+            background: "#fef2f2",
+            border: "1.5px solid #fecaca",
+            borderRadius: 10,
+            padding: "12px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 20,
+            color: "#ef4444",
+            fontSize: 14,
+            fontWeight: 500,
+          }}
+        >
+          <AlertCircle size={16} />
+          <span style={{ flex: 1 }}>{error}</span>
+          <X size={16} style={{ cursor: "pointer" }} onClick={() => setError(null)} />
+        </div>
       )}
+
+      {/* ──── STEP 1: Business Information ──────────────────────────────────── */}
+      <StepCard
+        number={1}
+        title="Business Information"
+        icon={Building2}
+        status={progress?.step1Completed ? "done" : activeStep === 1 ? "open" : "closed"}
+        locked={false}
+        onClick={() => setActiveStep(1)}
+      >
+        <div className="onb-fade">
+          {/* Read-only chips from super admin */}
+          <div
+            style={{
+              background: "#f8fafc",
+              border: "1.5px solid #e2e8f0",
+              borderRadius: 10,
+              padding: "14px 16px",
+              marginBottom: 24,
+              marginTop: 8,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", marginBottom: 10, letterSpacing: "0.05em" }}>
+              SET BY SUPER ADMIN
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Tag label={`Org: ${org?.name}`} color="#6366f1" />
+              {(org?.frameworks || []).map((f) => (
+                <Tag key={f} label={f} color="#8b5cf6" />
+              ))}
+              {org?.tprmEnabled && <Tag label="TPRM Enabled" color="#0ea5e9" />}
+              <Tag label={`Max Users: ${org?.maxUsers}`} color="#f59e0b" />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+            <Field label="Industry / Sector" required>
+              <Select
+                value={biz.industry}
+                onChange={(e) => setBiz({ ...biz, industry: e.target.value })}
+                options={INDUSTRY_OPTIONS}
+              />
+            </Field>
+
+            <Field label="Organization Website" hint="e.g. https://yourcompany.com">
+              <Input
+                value={biz.website}
+                onChange={(e) => setBiz({ ...biz, website: e.target.value })}
+                placeholder="https://"
+                prefix={<Globe size={14} />}
+              />
+            </Field>
+
+            <Field label="Office / HQ Address" required>
+              <Input
+                value={biz.address}
+                onChange={(e) => setBiz({ ...biz, address: e.target.value })}
+                placeholder="Street, City, State, Country"
+                prefix={<MapPin size={14} />}
+              />
+            </Field>
+
+            <Field label="Contact Phone">
+              <Input
+                value={biz.phone}
+                onChange={(e) => setBiz({ ...biz, phone: e.target.value })}
+                placeholder="+91 98765 43210"
+                prefix={<Phone size={14} />}
+              />
+            </Field>
+
+            <Field label="Total Employees" required>
+              <Select
+                value={biz.totalEmployees}
+                onChange={(e) => setBiz({ ...biz, totalEmployees: e.target.value })}
+                options={[
+                  { value: "1-50", label: "1–50" },
+                  { value: "51-200", label: "51–200" },
+                  { value: "201-500", label: "201–500" },
+                  { value: "501-2000", label: "501–2000" },
+                  { value: "2001+", label: "2001+" },
+                ]}
+              />
+            </Field>
+
+            <Field label="Number of Office Locations">
+              <Input
+                type="number"
+                value={biz.officeLocations}
+                onChange={(e) => setBiz({ ...biz, officeLocations: e.target.value })}
+                placeholder="e.g. 3"
+              />
+            </Field>
+
+            <Field label="Compliance Team Size">
+              <Input
+                type="number"
+                value={biz.complianceTeamSize}
+                onChange={(e) => setBiz({ ...biz, complianceTeamSize: e.target.value })}
+                placeholder="e.g. 5"
+              />
+            </Field>
+
+            <Field label="Email Domain" hint="Primary domain for your organization">
+              <Input
+                value={biz.domain}
+                onChange={(e) => setBiz({ ...biz, domain: e.target.value })}
+                placeholder="yourdomain.com"
+              />
+            </Field>
+          </div>
+
+          <div
+            style={{
+              borderTop: "1.5px solid #f1f5f9",
+              paddingTop: 20,
+              marginTop: 4,
+              marginBottom: 8,
+              fontWeight: 700,
+              fontSize: 14,
+              color: "#475569",
+            }}
+          >
+            Primary Compliance Contact
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 24px" }}>
+            <Field label="Full Name" required>
+              <Input
+                value={biz.primaryContactName}
+                onChange={(e) => setBiz({ ...biz, primaryContactName: e.target.value })}
+                placeholder="Jane Smith"
+                prefix={<User size={14} />}
+              />
+            </Field>
+            <Field label="Email" required>
+              <Input
+                type="email"
+                value={biz.primaryContactEmail}
+                onChange={(e) => setBiz({ ...biz, primaryContactEmail: e.target.value })}
+                placeholder="jane@company.com"
+                prefix={<Mail size={14} />}
+              />
+            </Field>
+            <Field label="Phone">
+              <Input
+                value={biz.primaryContactPhone}
+                onChange={(e) => setBiz({ ...biz, primaryContactPhone: e.target.value })}
+                placeholder="+91 …"
+                prefix={<Phone size={14} />}
+              />
+            </Field>
+          </div>
+
+          <Field label="Target Go-Live Date" hint="When do you plan to complete your first compliance cycle?">
+            <Input
+              type="date"
+              value={biz.goLiveDate}
+              onChange={(e) => setBiz({ ...biz, goLiveDate: e.target.value })}
+            />
+          </Field>
+
+          <div style={{ marginTop: 12 }}>
+            <Btn onClick={saveStep1} loading={step1Saving} variant="primary">
+              Save & Continue <ChevronRight size={16} />
+            </Btn>
+          </div>
+        </div>
+      </StepCard>
+
+      {/* ──── STEP 2: Module-Based User Setup ───────────────────────────────── */}
+      <StepCard
+        number={2}
+        title="Module Setup & Team"
+        icon={Shield}
+        status={
+          progress?.step2Completed ? "done" : !progress?.step1Completed ? "locked" : activeStep === 2 ? "open" : "closed"
+        }
+        locked={!progress?.step1Completed}
+        onClick={() => progress?.step1Completed && setActiveStep(2)}
+      >
+        <div className="onb-fade">
+          {/* ── Departments section ── */}
+          <div
+            style={{
+              background: "#f8fafc",
+              borderRadius: 12,
+              padding: 20,
+              marginBottom: 28,
+              marginTop: 8,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 14,
+              }}
+            >
+              <Briefcase size={16} color="#6366f1" />
+              <span style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>
+                Departments
+              </span>
+              <span style={{ fontSize: 12, color: "#94a3b8" }}>
+                — create departments first before adding users
+              </span>
+            </div>
+
+            {/* Existing departments */}
+            {departments.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                {departments.map((d) => (
+                  <div
+                    key={d.id}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "#fff",
+                      border: "1.5px solid #e2e8f0",
+                      borderRadius: 20,
+                      padding: "5px 12px",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: "#475569",
+                    }}
+                  >
+                    {d.name}
+                    <X
+                      size={12}
+                      style={{ cursor: "pointer", color: "#94a3b8" }}
+                      onClick={() => deleteDepartment(d.id)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <Input
+                value={newDeptName}
+                onChange={(e) => setNewDeptName(e.target.value)}
+                placeholder="Department name, e.g. IT, HR, Finance"
+              />
+              <Btn onClick={addDepartment} loading={deptSaving} variant="secondary">
+                <Plus size={14} /> Add
+              </Btn>
+            </div>
+          </div>
+
+          {/* ── User creation section ── */}
+          <div style={{ marginBottom: 20 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 16,
+              }}
+            >
+              <Users size={16} color="#6366f1" />
+              <span style={{ fontWeight: 700, fontSize: 15, color: "#1e293b" }}>
+                Add Team Members
+              </span>
+            </div>
+
+            {/* User form */}
+            <div
+              style={{
+                background: "#f8fafc",
+                border: "1.5px dashed #cbd5e1",
+                borderRadius: 12,
+                padding: 20,
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
+                <Field label="Full Name" required>
+                  <Input
+                    value={newUser.name}
+                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                    placeholder="John Doe"
+                    prefix={<User size={14} />}
+                  />
+                </Field>
+                <Field label="Email" required>
+                  <Input
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                    placeholder="john@company.com"
+                    prefix={<Mail size={14} />}
+                  />
+                </Field>
+                <Field label="Role" required>
+                  <Select
+                    value={newUser.role}
+                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                    options={ROLE_OPTIONS}
+                  />
+                </Field>
+                <Field label="Department">
+                  <Select
+                    value={newUser.department}
+                    onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
+                    options={departments.map((d) => ({ value: d.name, label: d.name }))}
+                  />
+                </Field>
+                <Field label="Temporary Password" required>
+                  <Input
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    placeholder="Min 8 characters"
+                  />
+                </Field>
+              </div>
+              <Btn onClick={createUser} loading={userSaving} variant="secondary">
+                <Plus size={14} /> Create User
+              </Btn>
+            </div>
+
+            {/* Users added so far */}
+            {users.length > 0 && (
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#94a3b8", marginBottom: 10 }}>
+                  USERS ADDED THIS SESSION
+                </div>
+                {users.map((u) => (
+                  <div
+                    key={u.email}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "10px 16px",
+                      background: "#fff",
+                      border: "1.5px solid #e2e8f0",
+                      borderRadius: 10,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: "50%",
+                        background: "#eef2ff",
+                        color: "#6366f1",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 700,
+                        fontSize: 14,
+                      }}
+                    >
+                      {u.name?.charAt(0)?.toUpperCase() || "U"}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: "#1e293b" }}>{u.name}</div>
+                      <div style={{ fontSize: 12, color: "#64748b" }}>{u.email}</div>
+                    </div>
+                    <Tag label={u.role?.replace(/_/g, " ")} color="#6366f1" />
+                    <Trash2
+                      size={14}
+                      color="#ef4444"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => removeUser(u.email)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginTop: 16 }}>
+            <Btn onClick={saveStep2} loading={step2Saving} variant="primary">
+              Save & Continue <ChevronRight size={16} />
+            </Btn>
+            <span style={{ fontSize: 12, color: "#94a3b8", marginLeft: 12 }}>
+              You can add more users later from the Users section.
+            </span>
+          </div>
+        </div>
+      </StepCard>
+
+      {/* ──── STEP 3: Training ──────────────────────────────────────────────── */}
+      <StepCard
+        number={3}
+        title="Training"
+        icon={GraduationCap}
+        status={
+          progress?.step3Completed ? "done" : !progress?.step2Completed ? "locked" : activeStep === 3 ? "open" : "closed"
+        }
+        locked={!progress?.step2Completed}
+        onClick={() => progress?.step2Completed && setActiveStep(3)}
+      >
+        <div className="onb-fade">
+
+          {/* ── Calvant trainer notice ── */}
+          <div style={{
+            display: "flex", alignItems: "flex-start", gap: 14,
+            background: "#eef2ff", border: "1.5px solid #c7d2fe",
+            borderRadius: 12, padding: "16px 20px", marginBottom: 24, marginTop: 8,
+          }}>
+            <div style={{ fontSize: 24, flexShrink: 0 }}>🎓</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#3730a3", marginBottom: 4 }}>
+                Your training will be conducted by a Calvant trainer
+              </div>
+              <div style={{ fontSize: 13, color: "#4338ca", lineHeight: 1.6 }}>
+                Once you complete this step, our team will contact
+                <strong> {biz.primaryContactName || "your primary contact"}</strong> at
+                <strong> {biz.primaryContactEmail || "the email provided in Step 1"}</strong> to
+                confirm the session date and details. No action needed from you beyond picking a preferred date below.
+              </div>
+            </div>
+          </div>
+
+          {/* Resource cards — pre-read before the session */}
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 12, letterSpacing: "0.05em" }}>
+            REVIEW BEFORE YOUR SESSION
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 28 }}>
+            {TRAINING_RESOURCES.map(({ icon: Icon, title, desc, tag, color }) => (
+              <div key={title}
+                style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: 18, transition: "box-shadow 0.15s, border-color 0.15s" }}
+                onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.08)"; e.currentTarget.style.borderColor = color; }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "#e2e8f0"; }}
+              >
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: color + "18", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
+                  <Icon size={18} color={color} />
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b", marginBottom: 4 }}>{title}</div>
+                <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5, marginBottom: 10 }}>{desc}</div>
+                <Tag label={tag} color={color} />
+              </div>
+            ))}
+          </div>
+
+          {/* Preferred date — only field root needs to fill */}
+          <div style={{ background: "#f8fafc", borderRadius: 12, padding: 20, marginBottom: 20, border: "1.5px solid #e2e8f0" }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b", marginBottom: 4 }}>
+              Preferred Training Date
+            </div>
+            <div style={{ fontSize: 13, color: "#64748b", marginBottom: 14 }}>
+              Pick a date that works for your team. Our trainer will confirm availability and send a calendar invite to {biz.primaryContactEmail || "your primary contact"}.
+            </div>
+            <Field label="Preferred date" hint="Optional — leave blank if you have no preference and our team will suggest one">
+              <Input type="date" value={training.preferredDate}
+                onChange={e => setTraining({ ...training, preferredDate: e.target.value })} />
+            </Field>
+          </div>
+
+          {/* Acknowledgement */}
+          <label style={{
+            display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer", padding: 16,
+            background: training.acknowledged ? "#f0fdf4" : "#fff",
+            border: `1.5px solid ${training.acknowledged ? "#22c55e" : "#e2e8f0"}`,
+            borderRadius: 10, marginBottom: 20, transition: "all 0.2s",
+          }}>
+            <input type="checkbox" checked={training.acknowledged}
+              onChange={e => setTraining({ ...training, acknowledged: e.target.checked })}
+              style={{ marginTop: 2, width: 16, height: 16, accentColor: "#22c55e", cursor: "pointer" }} />
+            <span style={{ fontSize: 14, color: "#475569", lineHeight: 1.6 }}>
+              I confirm I have reviewed the pre-training materials above and understand the roles and
+              responsibilities in the compliance program. I authorise Calvant to contact
+              <strong> {biz.primaryContactName || "the primary contact"}</strong> to schedule the onboarding session.
+            </span>
+          </label>
+
+          <Btn onClick={saveStep3} loading={step3Saving} variant="success" disabled={!training.acknowledged}>
+            Complete Setup <CheckCircle2 size={16} />
+          </Btn>
+          {!training.acknowledged && (
+            <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 8, marginBottom: 0 }}>
+              Tick the acknowledgement above to enable this button.
+            </p>
+          )}
+        </div>
+      </StepCard>
     </div>
   );
 }

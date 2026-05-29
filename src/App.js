@@ -56,19 +56,23 @@
 // import TPRMSection from "./modules/tprm/pages/TPRMSection";
 
 // //--- Trust Centre ---
-// // Add this with your other module imports
 // import PublicTrustCentrePage from "./modules/trustcentre/pages/PublicTrustCentrePage";
 // import TrustCentrePage from "./modules/trustcentre/pages/TrustCentrePage";
 
-// //--- Consent Management ---
+// //--- Consent Management (legacy entry point) ---
 // import ConsentDashboard from "./modules/consent/pages/Consentdashboard";
+
+// //--- Consent Management (full module) ---
+// import ConsentManagementDashboard from "./modules/consentManagement/pages/ConsentManagementDashboard";
+// import ConsentRecordsPage from "./modules/consentManagement/pages/ConsentRecordsPage";
+// import AuditTrailsPage from "./modules/consentManagement/pages/AuditTrailsPage";
 
 // import DpiaDashboard from "./modules/dpia/pages/DpiaDashboard";
 // import DpiaAssessment from "./modules/dpia/pages/DpiaAssessment";
 // import ViewAssessments from "./modules/dpia/pages/ViewAssessments";
 // import ComplianceDashboard from "./modules/dpia/pages/ComplianceDashboard";
 
-// //--- AIIA-----
+// //--- AIIA -----
 // import AiiaDashboard from "./modules/aiia/pages/AiiaDashboard";
 // import Stage1List from "./modules/aiia/pages/ManageAiiaModal";
 // import PlanAssessmentModal from "./modules/aiia/components/PlanAssessmentModal";
@@ -106,6 +110,9 @@
 // import FooterContentPage from "./footer-pages/FooterContentPage";
 
 // import { UIProvider } from "./context/UIContext";
+
+// // ── ADMIN PANEL ── (root role only, mounted at /admin/*)
+// import AdminRoutes from "./modules/admin/AdminRoutes";
 
 // import "./styles/GlobalStyles.css";
 
@@ -165,8 +172,6 @@
 //   ...rest
 // }) => {
 //   const user = JSON.parse(sessionStorage.getItem("user"));
-//   // useFramework is safe here because this component is always rendered
-//   // inside <FrameworkProvider>
 //   const { showDpia, showAiia } = useFramework();
 
 //   const moduleAllowed = moduleKey === "dpia" ? showDpia : showAiia;
@@ -225,6 +230,15 @@
 //       <Route exact path="/login" component={LoginPage} />
 //       <Route path="/demo" component={DemoPage} />
 
+//       {/* ── ADMIN PANEL ─────────────────────────────────────────────
+//           Visible ONLY for root (client admin) users.
+//           AdminRoutes handles its own layout, sidebar & route guards.
+//           The CalVant PersistentSidebar is NOT rendered here.
+//       ──────────────────────────────────────────────────────────── */}
+//       <Route path="/admin">
+//         <AdminRoutes />
+//       </Route>
+
 //       {/* STATIC PAGES */}
 //       <Route path="/about">
 //         <FooterContentPage type="about" />
@@ -241,9 +255,6 @@
 //       </Route>
 //       <Route path="/security">
 //         <FooterContentPage type="security" />
-//       </Route>
-//       <Route path="/about">
-//         <FooterContentPage type="about" />
 //       </Route>
 
 //       {/* FRAMEWORKS & TEMPLATES */}
@@ -326,13 +337,11 @@
 //               path="/documentation"
 //               component={Documentation}
 //             />
-
 //             <ProtectedRoute
 //               exact
 //               path="/documentation/archived"
 //               component={Archived}
 //             />
-
 //             <ProtectedRoute
 //               path="/risk-assessment/controls"
 //               component={ControlsPage}
@@ -403,10 +412,30 @@
 //             />
 
 //             {/* ── CONSENT MANAGEMENT ──────────────────────────────── */}
+//             {/* Legacy entry point — role-gated (root & dpo only) */}
 //             <RoleBasedRoute
 //               exact
 //               path="/consent"
 //               component={ConsentDashboard}
+//               allowedRoles={["root", "dpo"]}
+//             />
+//             {/* Full consent management module — role-gated (root & dpo only) */}
+//             <RoleBasedRoute
+//               exact
+//               path="/consent-management"
+//               component={ConsentManagementDashboard}
+//               allowedRoles={["root", "dpo"]}
+//             />
+//             <RoleBasedRoute
+//               exact
+//               path="/consent-management/records"
+//               component={ConsentRecordsPage}
+//               allowedRoles={["root", "dpo"]}
+//             />
+//             <RoleBasedRoute
+//               exact
+//               path="/consent-management/audit-trails"
+//               component={AuditTrailsPage}
 //               allowedRoles={["root", "dpo"]}
 //             />
 
@@ -689,6 +718,26 @@ import { SEOProvider } from "./context/SEOContext";
 import DynamicSEO from "./components/DynamicSEO";
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns the roles array for the currently logged-in user.
+ * Handles both string and array formats stored in sessionStorage.
+ */
+const getUserRoles = () => {
+  try {
+    const user = JSON.parse(sessionStorage.getItem("user"));
+    if (!user) return [];
+    return Array.isArray(user.role) ? user.role : user.role ? [user.role] : [];
+  } catch {
+    return [];
+  }
+};
+
+const isRoot = () => getUserRoles().includes("root");
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Route Guards
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -706,11 +755,7 @@ const ProtectedRoute = ({ component: Component, ...rest }) => {
 
 const RoleBasedRoute = ({ component: Component, allowedRoles, ...rest }) => {
   const user = JSON.parse(sessionStorage.getItem("user"));
-  const userRoles = Array.isArray(user?.role)
-    ? user.role
-    : user?.role
-      ? [user.role]
-      : [];
+  const userRoles = getUserRoles();
 
   return (
     <Route
@@ -802,6 +847,10 @@ const AppRoutes = () => {
           Visible ONLY for root (client admin) users.
           AdminRoutes handles its own layout, sidebar & route guards.
           The CalVant PersistentSidebar is NOT rendered here.
+
+          Root users are redirected to /admin/onboarding on first login.
+          AdminRoutes internally checks onboarding completion status and
+          redirects to /admin/onboarding when the wizard is incomplete.
       ──────────────────────────────────────────────────────────── */}
       <Route path="/admin">
         <AdminRoutes />
@@ -845,6 +894,7 @@ const AppRoutes = () => {
               path="/"
               render={() => {
                 const user = JSON.parse(sessionStorage.getItem("user"));
+                // Root users who somehow land on "/" get sent to admin panel
                 return user ? <DashboardLoggedIn /> : <Dashboard />;
               }}
             />

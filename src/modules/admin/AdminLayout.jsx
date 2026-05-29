@@ -273,6 +273,7 @@
  */
 import React, { useState } from "react";
 import { useHistory, useLocation } from "react-router-dom";
+import { Rocket } from "lucide-react";
 import {
   LayoutDashboard,
   Users,
@@ -297,6 +298,8 @@ import {
 
 // ── Nav structure with sub-menus ──────────────────────────────────────────────
 const NAV = [
+  
+  { label: "Onboarding", icon: Rocket, path: "/admin/onboarding" },
   {
     label: "Dashboard",
     icon: LayoutDashboard,
