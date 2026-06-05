@@ -1,5 +1,241 @@
+// import React, { useState } from "react";
+// import { useHistory } from "react-router-dom";
+// import api from "../../api/adminApi";
+
+// import {
+//   Box,
+//   Button,
+//   Container,
+//   Paper,
+//   TextField,
+//   Divider,
+//   Alert,
+//   FormControl,
+//   InputLabel,
+//   Select,
+//   MenuItem,
+//   OutlinedInput,
+//   Chip,
+//   FormLabel,
+//   RadioGroup,
+//   FormControlLabel,
+//   Radio,
+//   ListItemText,
+//   Checkbox,
+// } from "@mui/material";
+// import BusinessIcon from "@mui/icons-material/Business";
+// import SaveIcon from "@mui/icons-material/Save";
+// import SecurityIcon from "@mui/icons-material/Security";
+// import ShieldIcon from "@mui/icons-material/Shield";
+// import PeopleIcon from "@mui/icons-material/People"; // ✅ Added Icon for Max Users
+
+// // ✅ Must stay in sync with OrganizationController.ALLOWED_FRAMEWORKS
+// const FRAMEWORK_OPTIONS = [
+//   { value: "ISO27001", label: "ISO 27001 — Information Security" },
+//   { value: "ISO27701", label: "ISO 27701 — Privacy Information" },
+//   { value: "SOC2", label: "SOC 2 — Service Organization Controls" },
+//   { value: "ISO42001", label: "ISO 42001 — AI Management System" },
+//   { value: "GDPR", label: "GDPR — General Data Protection Regulation" },
+//   { value: "KSA_PDPL", label: "KSA PDPL — Personal Data Protection Law" },
+//   { value: "DPDPR", label: "DPDPR - Digital Personal Data Protection Rules" },
+// ];
+
+// function CreateOrg() {
+//   const [name, setName] = useState("");
+//   const [frameworks, setFrameworks] = useState([]);
+//   const [tprmEnabled, setTprmEnabled] = useState("false");
+//   const [maxUsers, setMaxUsers] = useState(""); // ✅ Added Max Users state
+//   const [loading, setLoading] = useState(false);
+//   const [error, setError] = useState("");
+
+//   const history = useHistory();
+
+//   const handleFrameworkChange = (event) => {
+//     const { value } = event.target;
+//     setFrameworks(typeof value === "string" ? value.split(",") : value);
+//   };
+
+//   const handleSubmit = async (e) => {
+//     e.preventDefault();
+//     setError("");
+
+//     if (!name.trim()) return setError("Organization name is required");
+//     if (frameworks.length === 0)
+//       return setError("Please select at least one compliance framework");
+
+//     setLoading(true);
+//     try {
+//       await api.post("/organizations", {
+//         name: name.trim(),
+//         frameworks,
+//         tprmEnabled: tprmEnabled === "true", // ✅ cast to boolean for backend
+//         maxUsers: maxUsers ? parseInt(maxUsers, 10) : null, // ✅ format MaxUsers for DB safely
+//       });
+//       history.push("/organizations/list");
+//     } catch (err) {
+//       setError(
+//         err.response?.data?.error ||
+//           err.response?.data ||
+//           "Failed to create organization"
+//       );
+//       setLoading(false);
+//     }
+//   };
+
+//   return (
+//     <Container maxWidth="md" sx={{ mt: 5, mb: 5 }}>
+//       <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
+//         {error && (
+//           <Alert severity="error" sx={{ mb: 3 }}>
+//             {error}
+//           </Alert>
+//         )}
+
+//         <form onSubmit={handleSubmit}>
+//           {/* ── Organization Name ──────────────────────────────── */}
+//           <Box sx={{ display: "flex", alignItems: "flex-end", gap: 2, mb: 4 }}>
+//             <BusinessIcon sx={{ color: "action.active", mr: 1, my: 0.5 }} />
+//             <TextField
+//               fullWidth
+//               label="Organization Name"
+//               variant="standard"
+//               value={name}
+//               onChange={(e) => setName(e.target.value)}
+//               placeholder="e.g. Acme Corp"
+//               disabled={loading}
+//               autoFocus
+//               helperText="This name will be used for billing and reports."
+//             />
+//           </Box>
+
+//           <Divider sx={{ my: 3 }} />
+
+//           {/* ── Max Users (Quota) ──────────────────────────────── */}
+//           <Box sx={{ display: "flex", alignItems: "flex-end", gap: 2, mb: 4 }}>
+//             <PeopleIcon sx={{ color: "action.active", mr: 1, my: 0.5 }} />
+//             <TextField
+//               fullWidth
+//               label="Maximum Users Limit"
+//               variant="standard"
+//               type="number"
+//               inputProps={{ min: 1 }}
+//               value={maxUsers}
+//               onChange={(e) => setMaxUsers(e.target.value)}
+//               placeholder="e.g. 50 (Leave blank for no limit)"
+//               disabled={loading}
+//               helperText="Set a hard limit on how many users this organization can register."
+//             />
+//           </Box>
+
+//           <Divider sx={{ my: 3 }} />
+
+//           {/* ── Compliance Frameworks ──────────────────────────── */}
+//           <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+//             <SecurityIcon sx={{ color: "action.active", flexShrink: 0 }} />
+//             <FormControl fullWidth>
+//               <InputLabel id="frameworks-label">
+//                 Compliance Frameworks *
+//               </InputLabel>
+//               <Select
+//                 labelId="frameworks-label"
+//                 multiple
+//                 value={frameworks}
+//                 onChange={handleFrameworkChange}
+//                 input={<OutlinedInput label="Compliance Frameworks *" />}
+//                 renderValue={(selected) => (
+//                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+//                     {selected.map((val) => (
+//                       <Chip
+//                         key={val}
+//                         label={val}
+//                         size="small"
+//                         color="primary"
+//                         variant="outlined"
+//                       />
+//                     ))}
+//                   </Box>
+//                 )}
+//                 disabled={loading}
+//               >
+//                 {FRAMEWORK_OPTIONS.map(({ value, label }) => (
+//                   <MenuItem key={value} value={value}>
+//                     <Checkbox checked={frameworks.includes(value)} />
+//                     <ListItemText
+//                       primary={value}
+//                       secondary={label.split("—")[1]?.trim()}
+//                     />
+//                   </MenuItem>
+//                 ))}
+//               </Select>
+//             </FormControl>
+//           </Box>
+
+//           <Divider sx={{ my: 3 }} />
+
+//           {/* ── TPRM Toggle ────────────────────────────────────── */}
+//           <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2, mb: 4 }}>
+//             <ShieldIcon sx={{ color: "action.active", mt: 0.5, flexShrink: 0 }} />
+//             <Box>
+//               <FormLabel
+//                 component="legend"
+//                 sx={{ fontWeight: 500, color: "text.primary", mb: 0.5 }}
+//               >
+//                 Enable TPRM (Third-Party Risk Management)
+//               </FormLabel>
+//               <Box sx={{ color: "text.secondary", fontSize: 13, mb: 1 }}>
+//                 Enables vendor risk assessments and third-party monitoring for
+//                 this organization.
+//               </Box>
+//               <RadioGroup
+//                 row
+//                 value={tprmEnabled}
+//                 onChange={(e) => setTprmEnabled(e.target.value)}
+//               >
+//                 <FormControlLabel
+//                   value="true"
+//                   control={<Radio disabled={loading} color="primary" />}
+//                   label="Yes — Enable TPRM"
+//                 />
+//                 <FormControlLabel
+//                   value="false"
+//                   control={<Radio disabled={loading} />}
+//                   label="No — Skip for now"
+//                 />
+//               </RadioGroup>
+//             </Box>
+//           </Box>
+
+//           <Divider sx={{ my: 3 }} />
+
+//           {/* ── Actions ───────────────────────────────────────── */}
+//           <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+//             <Button
+//               variant="outlined"
+//               onClick={() => history.push("/organizations/list")}
+//               disabled={loading}
+//             >
+//               Organisation List
+//             </Button>
+//             <Button
+//               type="submit"
+//               variant="contained"
+//               size="large"
+//               startIcon={<SaveIcon />}
+//               disabled={loading}
+//               sx={{ px: 4 }}
+//             >
+//               {loading ? "Creating..." : "Create Organisation"}
+//             </Button>
+//           </Box>
+//         </form>
+//       </Paper>
+//     </Container>
+//   );
+// }
+
+// export default CreateOrg;
 import React, { useState } from "react";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import api from "../../api/adminApi";
 
 import {
@@ -22,14 +258,17 @@ import {
   Radio,
   ListItemText,
   Checkbox,
+  Typography,
 } from "@mui/material";
+
 import BusinessIcon from "@mui/icons-material/Business";
 import SaveIcon from "@mui/icons-material/Save";
 import SecurityIcon from "@mui/icons-material/Security";
 import ShieldIcon from "@mui/icons-material/Shield";
-import PeopleIcon from "@mui/icons-material/People"; // ✅ Added Icon for Max Users
+import PeopleIcon from "@mui/icons-material/People";
+import StarIcon from "@mui/icons-material/Star";
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
 
-// ✅ Must stay in sync with OrganizationController.ALLOWED_FRAMEWORKS
 const FRAMEWORK_OPTIONS = [
   { value: "ISO27001", label: "ISO 27001 — Information Security" },
   { value: "ISO27701", label: "ISO 27701 — Privacy Information" },
@@ -37,21 +276,32 @@ const FRAMEWORK_OPTIONS = [
   { value: "ISO42001", label: "ISO 42001 — AI Management System" },
   { value: "GDPR", label: "GDPR — General Data Protection Regulation" },
   { value: "KSA_PDPL", label: "KSA PDPL — Personal Data Protection Law" },
-  { value: "DPDPR", label: "DPDPR - Digital Personal Data Protection Rules" },
+  { value: "DPDPA", label: "DPDPA — Digital Personal Data Protection Act" },
 ];
 
 function CreateOrg() {
+  const navigate = useNavigate();
+
+  const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+  const isSuperAdmin = user?.role?.includes("super_admin");
+  const isRoot = user?.role?.includes("root");
+  // root can only create child orgs if their org is a partner — backend enforces this too
+  const isPartnerRoot = isRoot && !isSuperAdmin;
+
   const [name, setName] = useState("");
   const [frameworks, setFrameworks] = useState([]);
   const [tprmEnabled, setTprmEnabled] = useState("false");
-  const [maxUsers, setMaxUsers] = useState(""); // ✅ Added Max Users state
+  const [maxUsers, setMaxUsers] = useState("");
+
+  // super_admin only fields
+  const [isPartner, setIsPartner] = useState("false");
+  const [maxChildOrganizations, setMaxChildOrganizations] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const history = useHistory();
-
-  const handleFrameworkChange = (event) => {
-    const { value } = event.target;
+  const handleFrameworkChange = (e) => {
+    const { value } = e.target;
     setFrameworks(typeof value === "string" ? value.split(",") : value);
   };
 
@@ -65,19 +315,26 @@ function CreateOrg() {
 
     setLoading(true);
     try {
-      await api.post("/organizations", {
+      const payload = {
         name: name.trim(),
         frameworks,
-        tprmEnabled: tprmEnabled === "true", // ✅ cast to boolean for backend
-        maxUsers: maxUsers ? parseInt(maxUsers, 10) : null, // ✅ format MaxUsers for DB safely
-      });
-      history.push("/organizations/list");
+        tprmEnabled: tprmEnabled === "true",
+        maxUsers: maxUsers ? parseInt(maxUsers, 10) : null,
+      };
+
+      // only super_admin can set partner flags
+      if (isSuperAdmin) {
+        payload.partner = isPartner === "true";
+        payload.maxChildOrganizations =
+          isPartner === "true" && maxChildOrganizations
+            ? parseInt(maxChildOrganizations, 10)
+            : null;
+      }
+
+      await api.post("/organizations", payload);
+      navigate("/organizations/list");
     } catch (err) {
-      setError(
-        err.response?.data?.error ||
-          err.response?.data ||
-          "Failed to create organization"
-      );
+      setError(err.response?.data || "Failed to create organization");
       setLoading(false);
     }
   };
@@ -85,6 +342,12 @@ function CreateOrg() {
   return (
     <Container maxWidth="md" sx={{ mt: 5, mb: 5 }}>
       <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
+        {isPartnerRoot && (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            You are creating a child organization under your partner account.
+          </Alert>
+        )}
+
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
             {error}
@@ -92,7 +355,7 @@ function CreateOrg() {
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* ── Organization Name ──────────────────────────────── */}
+          {/* Organization Name */}
           <Box sx={{ display: "flex", alignItems: "flex-end", gap: 2, mb: 4 }}>
             <BusinessIcon sx={{ color: "action.active", mr: 1, my: 0.5 }} />
             <TextField
@@ -110,7 +373,7 @@ function CreateOrg() {
 
           <Divider sx={{ my: 3 }} />
 
-          {/* ── Max Users (Quota) ──────────────────────────────── */}
+          {/* Max Users */}
           <Box sx={{ display: "flex", alignItems: "flex-end", gap: 2, mb: 4 }}>
             <PeopleIcon sx={{ color: "action.active", mr: 1, my: 0.5 }} />
             <TextField
@@ -121,15 +384,15 @@ function CreateOrg() {
               inputProps={{ min: 1 }}
               value={maxUsers}
               onChange={(e) => setMaxUsers(e.target.value)}
-              placeholder="e.g. 50 (Leave blank for no limit)"
+              placeholder="Leave blank for no limit"
               disabled={loading}
-              helperText="Set a hard limit on how many users this organization can register."
+              helperText="Hard limit on how many users this organization can register."
             />
           </Box>
 
           <Divider sx={{ my: 3 }} />
 
-          {/* ── Compliance Frameworks ──────────────────────────── */}
+          {/* Frameworks */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
             <SecurityIcon sx={{ color: "action.active", flexShrink: 0 }} />
             <FormControl fullWidth>
@@ -172,20 +435,22 @@ function CreateOrg() {
 
           <Divider sx={{ my: 3 }} />
 
-          {/* ── TPRM Toggle ────────────────────────────────────── */}
-          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2, mb: 4 }}>
-            <ShieldIcon sx={{ color: "action.active", mt: 0.5, flexShrink: 0 }} />
+          {/* TPRM */}
+          <Box
+            sx={{ display: "flex", alignItems: "flex-start", gap: 2, mb: 4 }}
+          >
+            <ShieldIcon
+              sx={{ color: "action.active", mt: 0.5, flexShrink: 0 }}
+            />
             <Box>
               <FormLabel
-                component="legend"
                 sx={{ fontWeight: 500, color: "text.primary", mb: 0.5 }}
               >
                 Enable TPRM (Third-Party Risk Management)
               </FormLabel>
-              <Box sx={{ color: "text.secondary", fontSize: 13, mb: 1 }}>
-                Enables vendor risk assessments and third-party monitoring for
-                this organization.
-              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Enables vendor risk assessments for this organization.
+              </Typography>
               <RadioGroup
                 row
                 value={tprmEnabled}
@@ -194,27 +459,104 @@ function CreateOrg() {
                 <FormControlLabel
                   value="true"
                   control={<Radio disabled={loading} color="primary" />}
-                  label="Yes — Enable TPRM"
+                  label="Yes"
                 />
                 <FormControlLabel
                   value="false"
                   control={<Radio disabled={loading} />}
-                  label="No — Skip for now"
+                  label="No"
                 />
               </RadioGroup>
             </Box>
           </Box>
 
+          {/* Partner fields — super_admin only */}
+          {isSuperAdmin && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 2,
+                  mb: 4,
+                }}
+              >
+                <StarIcon sx={{ color: "#f59e0b", mt: 0.5, flexShrink: 0 }} />
+                <Box sx={{ flex: 1 }}>
+                  <FormLabel
+                    sx={{ fontWeight: 500, color: "text.primary", mb: 0.5 }}
+                  >
+                    Partner Organization
+                  </FormLabel>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 1 }}
+                  >
+                    A partner org's root user can create child organizations
+                    under it.
+                  </Typography>
+                  <RadioGroup
+                    row
+                    value={isPartner}
+                    onChange={(e) => setIsPartner(e.target.value)}
+                  >
+                    <FormControlLabel
+                      value="true"
+                      control={<Radio disabled={loading} color="warning" />}
+                      label="Yes — Make this a Partner Org"
+                    />
+                    <FormControlLabel
+                      value="false"
+                      control={<Radio disabled={loading} />}
+                      label="No — Standard Org"
+                    />
+                  </RadioGroup>
+
+                  {isPartner === "true" && (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "flex-end",
+                        gap: 2,
+                        mt: 2,
+                      }}
+                    >
+                      <AccountTreeIcon
+                        sx={{ color: "action.active", mb: 0.5 }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="Max Child Organizations"
+                        variant="standard"
+                        type="number"
+                        inputProps={{ min: 1 }}
+                        value={maxChildOrganizations}
+                        onChange={(e) =>
+                          setMaxChildOrganizations(e.target.value)
+                        }
+                        placeholder="e.g. 10 (Leave blank for no limit)"
+                        disabled={loading}
+                        helperText="How many child orgs this partner can create."
+                      />
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            </>
+          )}
+
           <Divider sx={{ my: 3 }} />
 
-          {/* ── Actions ───────────────────────────────────────── */}
+          {/* Actions */}
           <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
             <Button
               variant="outlined"
-              onClick={() => history.push("/organizations/list")}
+              onClick={() => navigate("/organizations/list")}
               disabled={loading}
             >
-              Organisation List
+              Cancel
             </Button>
             <Button
               type="submit"
