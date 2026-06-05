@@ -9,7 +9,7 @@ import {
 import {
   CheckCircle, Cancel, ContentCopy, Link, Refresh,
   PersonAdd, Business, Email, Schedule, VerifiedUser,
-  LinkOff, OpenInNew, Person
+  LinkOff, OpenInNew, Person , Policy, Shield
 } from "@mui/icons-material";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -424,6 +424,7 @@ export default function TrustCentreAccessTab({ tc, setTc, isPublished }) {
                   <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Type</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Message</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Requested</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Requested For</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 700, fontSize: 12 }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -455,11 +456,39 @@ export default function TrustCentreAccessTab({ tc, setTc, isPublished }) {
                         </Typography>
                       </Tooltip>
                     </TableCell>
-                    <TableCell>
+                   <TableCell>
                       <Typography fontSize={12} color="text.secondary">
                         {formatDate(req.createdAt)}
                       </Typography>
                     </TableCell>
+
+                    {/* ── Requested For ── */}
+                    <TableCell>
+                      {req.targetPolicyName ? (
+                        <Chip
+                          label={req.targetPolicyName}
+                          size="small"
+                          icon={<Policy style={{ fontSize: 12 }} />}
+                          sx={{
+                            bgcolor: "#faf5ff", color: "#7c3aed",
+                            border: "1px solid #ede9fe",
+                            fontWeight: 600, fontSize: 11,
+                          }}
+                        />
+                      ) : (
+                        <Chip
+                          label="Full Access"
+                          size="small"
+                          icon={<Shield style={{ fontSize: 12 }} />}
+                          sx={{
+                            bgcolor: "#eff6ff", color: "#1d4ed8",
+                            border: "1px solid #bfdbfe",
+                            fontWeight: 600, fontSize: 11,
+                          }}
+                        />
+                      )}
+                    </TableCell>
+
                     <TableCell align="center">
                       <Box sx={{ display: "flex", gap: 1, justifyContent: "center" }}>
                         <Tooltip title="Approve">
